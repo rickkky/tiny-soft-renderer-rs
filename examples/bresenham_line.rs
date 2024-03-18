@@ -1,9 +1,10 @@
 use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
 use nalgebra::Vector2;
+use rand::Rng;
 use tinyrenderer::{basetype::Viewport, color::Color, renderer::Renderer};
 
-const WIN_WIDTH: u32 = 1024;
-const WIN_HEIGHT: u32 = 720;
+const WIN_WIDTH: u32 = 800;
+const WIN_HEIGHT: u32 = 800;
 
 pub fn main() {
     let app = fltk::app::App::default();
@@ -16,16 +17,36 @@ pub fn main() {
         renderer.clear();
 
         let colors = [Color::WHITE, Color::RED, Color::GREEN, Color::BLUE];
+
+        let x_center = WIN_WIDTH as f32 / 2.0;
+        let y_center = WIN_HEIGHT as f32 / 2.0;
+        let r_0 = 100.0;
+        let r_1 = 300.0;
         for i in 0..16 {
             let angle = i as f32 * std::f32::consts::PI / 8.0;
-            let x = angle.cos() * WIN_WIDTH as f32 / 2.0;
-            let y = angle.sin() * WIN_HEIGHT as f32 / 2.0;
+            let cos = angle.cos();
+            let sin = angle.sin();
             renderer.draw_line(
-                &Vector2::new(WIN_WIDTH as f32 / 2.0, WIN_HEIGHT as f32 / 2.0),
-                &Vector2::new(x + WIN_WIDTH as f32 / 2.0, y + WIN_HEIGHT as f32 / 2.0),
+                &Vector2::new(x_center + r_0 * cos, y_center + r_0 * sin),
+                &Vector2::new(x_center + r_1 * cos, y_center + r_1 * sin),
                 &colors[i % 4],
             );
         }
+
+        // let mut rng = rand::thread_rng();
+        // for i in 0..16 {
+        //     renderer.draw_line(
+        //         &Vector2::new(
+        //             rng.gen_range(0.0..WIN_WIDTH as f32),
+        //             rng.gen_range(0.0..WIN_HEIGHT as f32),
+        //         ),
+        //         &Vector2::new(
+        //             rng.gen_range(0.0..WIN_WIDTH as f32),
+        //             rng.gen_range(0.0..WIN_HEIGHT as f32),
+        //         ),
+        //         &colors[i % 4],
+        //     );
+        // }
 
         fltk::draw::draw_image(
             &renderer.frame_buffer,

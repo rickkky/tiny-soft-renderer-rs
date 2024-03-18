@@ -1,3 +1,4 @@
+use crate::basetype::Bbox2;
 use nalgebra::Vector2;
 
 const INSIDE: u8 = /**/ 0b0000;
@@ -5,36 +6,37 @@ const LEFT: u8 = /****/ 0b0001;
 const RIGHT: u8 = /***/ 0b0010;
 const BOTTOM: u8 = /**/ 0b0100;
 const TOP: u8 = /*****/ 0b1000;
-fn compute_area_code(p: &Vector2<f32>, rect_min: &Vector2<f32>, rect_max: &Vector2<f32>) -> u8 {
-    let horizontal_code = if p.x < rect_min.x {
+
+fn compute_area_code(p: &Vector2<f32>, bbox: &Bbox2<f32>) -> u8 {
+    let horizontal_code = if p.x < bbox.l {
         LEFT
-    } else if p.x > rect_max.x {
+    } else if p.x > bbox.r {
         RIGHT
     } else {
         INSIDE
     };
-    let vertical_code = if p.y < rect_min.y {
+    let vertical_code = if p.y < bbox.b {
         BOTTOM
-    } else if p.y > rect_max.y {
+    } else if p.y > bbox.t {
         TOP
     } else {
         INSIDE
     };
     horizontal_code | vertical_code
 }
+
 /**
  * Cohen-Sutherland line clipping algorithm.
  */
 pub fn clip_line(
     p_0: &Vector2<f32>,
     p_1: &Vector2<f32>,
-    rect_min: &Vector2<f32>,
-    rect_max: &Vector2<f32>,
+    bbox: &Bbox2<f32>,
 ) -> Option<(Vector2<f32>, Vector2<f32>)> {
     let mut p_0 = p_0.clone();
     let mut p_1 = p_1.clone();
-    let mut code_0 = compute_area_code(&p_0, &rect_min, &rect_max);
-    let mut code_1 = compute_area_code(&p_1, &rect_min, &rect_max);
+    let mut code_0 = compute_area_code(&p_0, bbox);
+    let mut code_1 = compute_area_code(&p_1, bbox);
 
     loop {
         // Both points are on the same outside region.
@@ -52,16 +54,16 @@ pub fn clip_line(
         // Compute intersection point.
         let mut p = Vector2::<f32>::new(0., 0.);
         if code & TOP != INSIDE {
-            p.y = rect_max.y;
+            p.y = bbox.t;
             p.x = p_0.x + (p_1.x - p_0.x) * (p.y - p_0.y) / (p_1.y - p_0.y);
         } else if code & BOTTOM != INSIDE {
-            p.y = rect_min.y;
+            p.y = bbox.b;
             p.x = p_0.x + (p_1.x - p_0.x) * (p.y - p_0.y) / (p_1.y - p_0.y);
         } else if code & RIGHT != INSIDE {
-            p.x = rect_max.x;
+            p.x = bbox.r;
             p.y = p_0.y + (p_1.y - p_0.y) * (p.x - p_0.x) / (p_1.x - p_0.x);
         } else if code & LEFT != INSIDE {
-            p.x = rect_min.x;
+            p.x = bbox.l;
             p.y = p_0.y + (p_1.y - p_0.y) * (p.x - p_0.x) / (p_1.x - p_0.x);
         }
 
@@ -69,11 +71,11 @@ pub fn clip_line(
         if code == code_0 {
             p_0.x = p.x;
             p_0.y = p.y;
-            code_0 = compute_area_code(&p_0, &rect_min, &rect_max);
+            code_0 = compute_area_code(&p_0, bbox);
         } else {
             p_1.x = p.x;
             p_1.y = p.y;
-            code_1 = compute_area_code(&p_1, &rect_min, &rect_max);
+            code_1 = compute_area_code(&p_1, bbox);
         }
     }
 }
@@ -84,17 +86,105 @@ mod tests {
 
     #[test]
     fn test_clip_line() {
-        let rect_min = Vector2::new(0., 0.);
-        let rect_max = Vector2::new(1., 1.);
+        let bbox = Bbox2::new(0.0, 1.0, 0.0, 1.0);
         let p_0 = Vector2::new(0.5, 0.5);
         let p_1 = Vector2::new(0.5, 1.5);
-        let (p_0, p_1) = clip_line(&p_0, &p_1, &rect_min, &rect_max).unwrap();
+        let (p_0, p_1) = clip_line(&p_0, &p_1, &bbox).unwrap();
         assert_eq!(p_0, Vector2::new(0.5, 0.5));
         assert_eq!(p_1, Vector2::new(0.5, 1.));
         let p_0 = Vector2::new(-1., -1.);
         let p_1 = Vector2::new(2., 2.);
-        let (p_0, p_1) = clip_line(&p_0, &p_1, &rect_min, &rect_max).unwrap();
+        let (p_0, p_1) = clip_line(&p_0, &p_1, &bbox).unwrap();
         assert_eq!(p_0, Vector2::new(0., 0.));
         assert_eq!(p_1, Vector2::new(1., 1.));
+    }
+}
+
+/**
+ * Bresenham line drawing algorithm.
+ */
+pub fn travel_line_bresenham(p_0: &Vector2<f32>, p_1: &Vector2<f32>) -> LineBresenhamIterator {
+    let (mut x_0, mut y_0) = (p_0.x.round() as i32, p_0.y.round() as i32);
+    let (mut x_1, mut y_1) = (p_1.x.round() as i32, p_1.y.round() as i32);
+    let steep = (y_1 - y_0).abs() > (x_1 - x_0).abs();
+    if steep {
+        // Swap x and y so that the slope abs is always less than 1.
+        std::mem::swap(&mut x_0, &mut y_0);
+        std::mem::swap(&mut x_1, &mut y_1);
+    }
+    if x_0 > x_1 {
+        // Swap p_0 and p_1 so that the traversal is from left to right.
+        std::mem::swap(&mut x_0, &mut x_1);
+        std::mem::swap(&mut y_0, &mut y_1);
+    }
+    let delta_x = x_1 - x_0;
+    let delta_y = y_1 - y_0;
+    /*
+     * Let step_y = delta_y / delta_x .
+     * For each x += 1 , y += step_y .
+     *
+     * Because the line is continuous,
+     * we define n to store the continuous change of y .
+     * Let step_y = delta_y.abs() / delta_x .
+     * For each x += 1 , n += step_y ;
+     * if n > 0.5, y += 1 (or -1, depending on delta_y), n -= 1 .
+     *
+     * To avoid using floating point numbers and division method,
+     * we multiply the original step_y by 2 * delta_x .
+     *
+     * Let incr_n = delta_y.abs() * 2 , decr_n = 2 * delta_x .
+     * For each x += 1 , n += incr_n ;
+     * if n > delta_x, y += 1 (or -1, depending on delta_y), n -= decr_n .
+     *
+     */
+    let incr_n = 2 * delta_y.abs();
+    let decr_n = 2 * delta_x;
+    let n = -incr_n;
+    let x = x_0;
+    let y = y_0;
+    LineBresenhamIterator {
+        x_end: x_1,
+        steep,
+        delta_x,
+        delta_y,
+        incr_n,
+        decr_n,
+        n,
+        x,
+        y,
+    }
+}
+
+pub struct LineBresenhamIterator {
+    x_end: i32,
+    steep: bool,
+    delta_x: i32,
+    delta_y: i32,
+    incr_n: i32,
+    decr_n: i32,
+    n: i32,
+    x: i32,
+    y: i32,
+}
+
+impl Iterator for LineBresenhamIterator {
+    type Item = Vector2<i32>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.x > self.x_end {
+            return None;
+        }
+        let p = if self.steep {
+            Vector2::new(self.y, self.x)
+        } else {
+            Vector2::new(self.x, self.y)
+        };
+        self.x += 1;
+        self.n += self.incr_n;
+        if self.n > self.delta_x {
+            self.y += if self.delta_y > 0 { 1 } else { -1 };
+            self.n -= self.decr_n;
+        }
+        Some(p)
     }
 }
