@@ -49,9 +49,9 @@ impl Renderer {
             return;
         }
         let (p_0, p_1) = clip_result.unwrap();
-        let line_iter = travel_line_bresenham(&p_0, &p_1);
-        for v in line_iter {
-            self.draw_pixel(&v, color);
-        }
+        let draw = |p: Vector2<i32>| {
+            self.draw_pixel(&p, color);
+        };
+        travel_line_bresenham(&p_0, &p_1, draw);
     }
 }

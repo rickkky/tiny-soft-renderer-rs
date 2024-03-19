@@ -103,7 +103,11 @@ mod tests {
 /**
  * Bresenham line drawing algorithm.
  */
-pub fn travel_line_bresenham(p_0: &Vector2<f32>, p_1: &Vector2<f32>) -> LineBresenhamIterator {
+pub fn travel_line_bresenham<T: FnMut(Vector2<i32>)>(
+    p_0: &Vector2<f32>,
+    p_1: &Vector2<f32>,
+    mut action: T,
+) {
     let (mut x_0, mut y_0) = (p_0.x.round() as i32, p_0.y.round() as i32);
     let (mut x_1, mut y_1) = (p_1.x.round() as i32, p_1.y.round() as i32);
     let steep = (y_1 - y_0).abs() > (x_1 - x_0).abs();
@@ -139,52 +143,20 @@ pub fn travel_line_bresenham(p_0: &Vector2<f32>, p_1: &Vector2<f32>) -> LineBres
      */
     let incr_n = 2 * delta_y.abs();
     let decr_n = 2 * delta_x;
-    let n = -incr_n;
-    let x = x_0;
-    let y = y_0;
-    LineBresenhamIterator {
-        x_end: x_1,
-        steep,
-        delta_x,
-        delta_y,
-        incr_n,
-        decr_n,
-        n,
-        x,
-        y,
-    }
-}
+    let mut n = -incr_n;
+    let mut y = y_0;
 
-pub struct LineBresenhamIterator {
-    x_end: i32,
-    steep: bool,
-    delta_x: i32,
-    delta_y: i32,
-    incr_n: i32,
-    decr_n: i32,
-    n: i32,
-    x: i32,
-    y: i32,
-}
-
-impl Iterator for LineBresenhamIterator {
-    type Item = Vector2<i32>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.x > self.x_end {
-            return None;
+    for x in x_0..=x_1 {
+        n += incr_n;
+        if n > delta_x {
+            y += if delta_y > 0 { 1 } else { -1 };
+            n -= decr_n;
         }
-        let p = if self.steep {
-            Vector2::new(self.y, self.x)
+        let p = if steep {
+            Vector2::new(y, x)
         } else {
-            Vector2::new(self.x, self.y)
+            Vector2::new(x, y)
         };
-        self.x += 1;
-        self.n += self.incr_n;
-        if self.n > self.delta_x {
-            self.y += if self.delta_y > 0 { 1 } else { -1 };
-            self.n -= self.decr_n;
-        }
-        Some(p)
+        action(p);
     }
 }
