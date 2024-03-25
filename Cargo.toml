@@ -8,7 +8,7 @@ authors = ["rickkky <rickkky@foxmail.com>"]
 
 [dependencies]
 nalgebra = "0.32.4"
+rand = "0.8.5"
 
 [dev-dependencies]
 fltk = { version = "1.4.26", features = ["fltk-bundled"] }
-rand = "0.8.5"

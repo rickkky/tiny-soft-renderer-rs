@@ -1,4 +1,5 @@
-use nalgebra::Vector2;
+use crate::basetype::Bbox2;
+use nalgebra::{Vector2, Vector3};
 
 pub fn travel_triangle_sweep_line<T: FnMut(Vector2<i32>)>(
     p_0: &Vector2<f32>,
@@ -56,4 +57,41 @@ pub fn travel_triangle_sweep_line<T: FnMut(Vector2<i32>)>(
             action(Vector2::new(x, y));
         }
     }
+}
+
+pub fn travel_triangle_barycentric<T: FnMut(Vector2<i32>)>(
+    p_0: &Vector2<f32>,
+    p_1: &Vector2<f32>,
+    p_2: &Vector2<f32>,
+    mut action: T,
+) {
+    let bbox = Bbox2::from_points(&vec![p_0, p_1, p_2]);
+    for x in bbox.l.floor() as i32..=bbox.r.ceil() as i32 {
+        for y in bbox.b.floor() as i32..=bbox.t.ceil() as i32 {}
+    }
+}
+
+pub fn triangle_barycentric_2(
+    p_0: &Vector2<f32>,
+    p_1: &Vector2<f32>,
+    p_2: &Vector2<f32>,
+    p: &Vector2<f32>,
+) -> Vector3<f32> {
+    let area_twice = (p_1 - p_0).cross(&(p_2 - p_0)).norm();
+    if area_twice == 0.0 {
+        panic!("The triangle is degenerate.");
+    }
+    let alpha = (p_1 - p).cross(&(p_2 - p)).norm() / area_twice;
+    let beta = (p_2 - p).cross(&(p_0 - p)).norm() / area_twice;
+    let gamma = (p_0 - p).cross(&(p_1 - p)).norm() / area_twice;
+    Vector3::new(alpha, beta, gamma)
+}
+
+pub fn barycentric(
+    p_0: &Vector2<f32>,
+    p_1: &Vector2<f32>,
+    p_2: &Vector2<f32>,
+    p: &Vector2<f32>,
+) -> Vector3<f32> {
+    // 1 - beta - gamma, beta, gamma
 }
