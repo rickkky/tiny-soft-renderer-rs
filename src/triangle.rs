@@ -93,5 +93,26 @@ pub fn barycentric(
     p_2: &Vector2<f32>,
     p: &Vector2<f32>,
 ) -> Vector3<f32> {
-    // 1 - beta - gamma, beta, gamma
+    let v_0 = p_2 - p_0;
+    let v_1 = p_1 - p_0;
+    let v_2 = p - p_0;
+
+    let dot_00 = v_0.dot(&v_0);
+    let dot_01 = v_0.dot(&v_1);
+    let dot_02 = v_0.dot(&v_2);
+    let dot_11 = v_1.dot(&v_1);
+    let dot_12 = v_1.dot(&v_2);
+
+    let denom = dot_00 * dot_11 - dot_01 * dot_01;
+
+    // collinear or singular triangle
+    if denom == 0.0 {
+        return Vector3::new(0.0, 0.0, 0.0);
+    }
+
+    let inv_denom = 1.0 / denom;
+    let beta = (dot_00 * dot_12 - dot_01 * dot_02) * inv_denom;
+    let gamma = (dot_11 * dot_02 - dot_01 * dot_12) * inv_denom;
+
+    Vector3::new(1.0 - beta - gamma, beta, gamma)
 }
