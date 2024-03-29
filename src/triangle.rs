@@ -67,34 +67,30 @@ pub fn travel_triangle_barycentric<T: FnMut(Vector2<i32>)>(
 ) {
     let bbox = Bbox2::from_points(&vec![p_0, p_1, p_2]);
     for x in bbox.l.floor() as i32..=bbox.r.ceil() as i32 {
-        for y in bbox.b.floor() as i32..=bbox.t.ceil() as i32 {}
+        for y in bbox.b.floor() as i32..=bbox.t.ceil() as i32 {
+            let p = Vector2::new(x as f32, y as f32);
+            let bary_coord = get_barycentric_coordinate(p_0, p_1, p_2, &p);
+
+            if !is_barycentric_coordinate_inside(&bary_coord) {
+                continue;
+            }
+
+            action(Vector2::new(x, y));
+        }
     }
 }
 
-pub fn triangle_barycentric_2(
+/**
+ *
+ */
+pub fn get_barycentric_coordinate(
     p_0: &Vector2<f32>,
     p_1: &Vector2<f32>,
     p_2: &Vector2<f32>,
     p: &Vector2<f32>,
 ) -> Vector3<f32> {
-    let area_twice = (p_1 - p_0).cross(&(p_2 - p_0)).norm();
-    if area_twice == 0.0 {
-        panic!("The triangle is degenerate.");
-    }
-    let alpha = (p_1 - p).cross(&(p_2 - p)).norm() / area_twice;
-    let beta = (p_2 - p).cross(&(p_0 - p)).norm() / area_twice;
-    let gamma = (p_0 - p).cross(&(p_1 - p)).norm() / area_twice;
-    Vector3::new(alpha, beta, gamma)
-}
-
-pub fn barycentric(
-    p_0: &Vector2<f32>,
-    p_1: &Vector2<f32>,
-    p_2: &Vector2<f32>,
-    p: &Vector2<f32>,
-) -> Vector3<f32> {
-    let v_0 = p_2 - p_0;
-    let v_1 = p_1 - p_0;
+    let v_0 = p_1 - p_0;
+    let v_1 = p_2 - p_0;
     let v_2 = p - p_0;
 
     let dot_00 = v_0.dot(&v_0);
@@ -111,8 +107,27 @@ pub fn barycentric(
     }
 
     let inv_denom = 1.0 / denom;
-    let beta = (dot_00 * dot_12 - dot_01 * dot_02) * inv_denom;
-    let gamma = (dot_11 * dot_02 - dot_01 * dot_12) * inv_denom;
+    let beta = (dot_11 * dot_02 - dot_01 * dot_12) * inv_denom;
+    let gamma = (dot_00 * dot_12 - dot_01 * dot_02) * inv_denom;
 
     Vector3::new(1.0 - beta - gamma, beta, gamma)
+}
+
+pub fn is_barycentric_coordinate_inside(bary_coord: &Vector3<f32>) -> bool {
+    bary_coord.x >= 0.0 && bary_coord.y >= 0.0 && bary_coord.z >= 0.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_barycentric_coordinate() {
+        let p_0 = Vector2::new(0.0, 0.0);
+        let p_1 = Vector2::new(1.0, 0.0);
+        let p_2 = Vector2::new(0.0, 1.0);
+        let p = Vector2::new(0.5, 0.5);
+        let bary_coord = get_barycentric_coordinate(&p_0, &p_1, &p_2, &p);
+        assert_eq!(bary_coord, Vector3::new(0.0, 0.5, 0.5));
+    }
 }

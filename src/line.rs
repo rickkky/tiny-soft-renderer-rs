@@ -80,26 +80,6 @@ pub fn clip_line(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_clip_line() {
-        let bbox = Bbox2::new(0.0, 1.0, 0.0, 1.0);
-        let p_0 = Vector2::new(0.5, 0.5);
-        let p_1 = Vector2::new(0.5, 1.5);
-        let (p_0, p_1) = clip_line(&p_0, &p_1, &bbox).unwrap();
-        assert_eq!(p_0, Vector2::new(0.5, 0.5));
-        assert_eq!(p_1, Vector2::new(0.5, 1.));
-        let p_0 = Vector2::new(-1., -1.);
-        let p_1 = Vector2::new(2., 2.);
-        let (p_0, p_1) = clip_line(&p_0, &p_1, &bbox).unwrap();
-        assert_eq!(p_0, Vector2::new(0., 0.));
-        assert_eq!(p_1, Vector2::new(1., 1.));
-    }
-}
-
 /**
  * Bresenham line drawing algorithm.
  */
@@ -158,5 +138,27 @@ pub fn travel_line_bresenham<T: FnMut(Vector2<i32>)>(
             Vector2::new(x, y)
         };
         action(p);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_clip_line() {
+        let bbox = Bbox2::new(0.0, 1.0, 0.0, 1.0);
+
+        let p_0 = Vector2::new(0.5, 0.5);
+        let p_1 = Vector2::new(0.5, 1.5);
+        let (p_0, p_1) = clip_line(&p_0, &p_1, &bbox).unwrap();
+        assert_eq!(p_0, Vector2::new(0.5, 0.5));
+        assert_eq!(p_1, Vector2::new(0.5, 1.));
+
+        let p_0 = Vector2::new(-1., -1.);
+        let p_1 = Vector2::new(2., 2.);
+        let (p_0, p_1) = clip_line(&p_0, &p_1, &bbox).unwrap();
+        assert_eq!(p_0, Vector2::new(0., 0.));
+        assert_eq!(p_1, Vector2::new(1., 1.));
     }
 }
