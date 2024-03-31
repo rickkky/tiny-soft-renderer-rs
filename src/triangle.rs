@@ -80,9 +80,6 @@ pub fn travel_triangle_barycentric<T: FnMut(Vector2<i32>)>(
     }
 }
 
-/**
- *
- */
 pub fn get_barycentric_coordinate(
     p_0: &Vector2<f32>,
     p_1: &Vector2<f32>,
@@ -101,9 +98,8 @@ pub fn get_barycentric_coordinate(
 
     let denom = dot_00 * dot_11 - dot_01 * dot_01;
 
-    // collinear or singular triangle
     if denom == 0.0 {
-        return Vector3::new(0.0, 0.0, 0.0);
+        return Vector3::new(-1.0, 1.0, 1.0);
     }
 
     let inv_denom = 1.0 / denom;
