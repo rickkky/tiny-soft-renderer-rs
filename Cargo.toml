@@ -12,3 +12,4 @@ rand = "0.8.5"
 
 [dev-dependencies]
 fltk = { version = "1.4.26", features = ["fltk-bundled"] }
+gltf = "1.4.0"
