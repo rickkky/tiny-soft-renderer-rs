@@ -1,6 +1,6 @@
 use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
 use nalgebra::Vector2;
-use tinyrenderer::{basetype::Viewport, color::Color, renderer::Renderer};
+use tinyrenderer::{basetype::Viewport, color::Color, renderer::Raster};
 
 const WIN_WIDTH: u32 = 800;
 const WIN_HEIGHT: u32 = 800;
@@ -10,7 +10,7 @@ pub fn main() {
     let mut win = fltk::window::Window::new(100, 100, WIN_WIDTH as i32, WIN_HEIGHT as i32, "Test");
 
     let viewport = Viewport::new(0, 0, WIN_WIDTH, WIN_HEIGHT);
-    let mut renderer = Renderer::new(viewport);
+    let mut renderer = Raster::new(viewport);
 
     win.draw(move |_| {
         renderer.clear();

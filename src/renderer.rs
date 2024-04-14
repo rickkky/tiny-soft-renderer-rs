@@ -1,13 +1,15 @@
 use crate::basetype::{Bbox2, Viewport};
 use crate::color::Color;
 use crate::line::{clip_line, travel_line_bresenham};
+use crate::mesh::Mesh;
 use nalgebra::Vector2;
 
-pub struct Renderer {
+pub struct Raster {
     pub viewport: Viewport,
     pub frame_buffer: Vec<u8>,
 }
-impl Renderer {
+
+impl Raster {
     pub fn new(viewport: Viewport) -> Self {
         let pixel_count = (viewport.width * viewport.height) as usize;
         Self {
@@ -54,4 +56,24 @@ impl Renderer {
         };
         travel_line_bresenham(&p_0, &p_1, draw);
     }
+
+    pub fn draw<V>(
+        &mut self,
+        vertex_shader: fn(index: usize) -> Vertex<V>,
+        fragment_shader: fn(v: Vertex<V>) -> Color,
+        times: usize,
+    ) {
+        let vertices: Vec<Vertex<V>> = (0..times).map(vertex_shader).collect();
+        // iterate by triangle
+        for i in (0..times).step_by(3) {
+            let v0 = &vertices[i];
+            let v1 = &vertices[i + 1];
+            let v2 = &vertices[i + 2];
+        }
+    }
+}
+
+pub struct Vertex<V> {
+    pub position: Vector2<f32>,
+    pub varying: V,
 }
