@@ -1,5 +1,5 @@
 use crate::basetype::Bbox2;
-use nalgebra::{Vector2, Vector3};
+use nalgebra::{Vector2, Vector3, Vector4};
 
 pub fn travel_triangle_sweep_line<T: FnMut(Vector2<i32>)>(
     p_0: &Vector2<f32>,
@@ -59,7 +59,7 @@ pub fn travel_triangle_sweep_line<T: FnMut(Vector2<i32>)>(
     }
 }
 
-pub fn travel_triangle_barycentric<T: FnMut(Vector2<i32>)>(
+pub fn travel_triangle_barycentric<T: FnMut(Vector2<i32>, Vector3<f32>)>(
     p_0: &Vector2<f32>,
     p_1: &Vector2<f32>,
     p_2: &Vector2<f32>,
@@ -69,18 +69,31 @@ pub fn travel_triangle_barycentric<T: FnMut(Vector2<i32>)>(
     for x in bbox.l.floor() as i32..=bbox.r.ceil() as i32 {
         for y in bbox.b.floor() as i32..=bbox.t.ceil() as i32 {
             let p = Vector2::new(x as f32, y as f32);
-            let bary_coord = get_barycentric_coordinate(p_0, p_1, p_2, &p);
+            let bary_coord = compute_barycentric_coordinate(p_0, p_1, p_2, &p);
 
             if !is_barycentric_coordinate_inside(&bary_coord) {
                 continue;
             }
 
-            action(Vector2::new(x, y));
+            action(Vector2::new(x, y), bary_coord);
         }
     }
 }
 
-pub fn get_barycentric_coordinate(
+pub fn collect_triangle_barycentric(
+    p_0: &Vector4<f32>,
+    p_1: &Vector4<f32>,
+    p_2: &Vector4<f32>,
+) -> Vec<(Vector4<f32>, Vector3<f32>)> {
+    let mut points = Vec::new();
+    travel_triangle_barycentric(&p_0.xy(), &p_1.xy(), &p_2.xy(), |p, bary_coord| {
+        let z = bary_coord.x * p_0.z + bary_coord.y * p_1.z + bary_coord.z * p_2.z;
+        points.push((Vector4::new(p.x as f32, p.y as f32, z, 1.0), bary_coord));
+    });
+    points
+}
+
+pub fn compute_barycentric_coordinate(
     p_0: &Vector2<f32>,
     p_1: &Vector2<f32>,
     p_2: &Vector2<f32>,
@@ -118,12 +131,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_barycentric_coordinate() {
+    fn test_compute_barycentric_coordinate() {
         let p_0 = Vector2::new(0.0, 0.0);
         let p_1 = Vector2::new(1.0, 0.0);
         let p_2 = Vector2::new(0.0, 1.0);
         let p = Vector2::new(0.5, 0.5);
-        let bary_coord = get_barycentric_coordinate(&p_0, &p_1, &p_2, &p);
+        let bary_coord = compute_barycentric_coordinate(&p_0, &p_1, &p_2, &p);
         assert_eq!(bary_coord, Vector3::new(0.0, 0.5, 0.5));
     }
 }

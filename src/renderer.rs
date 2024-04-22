@@ -2,7 +2,13 @@ use crate::basetype::{Bbox2, Viewport};
 use crate::color::Color;
 use crate::line::{clip_line, travel_line_bresenham};
 use crate::mesh::Mesh;
-use nalgebra::Vector2;
+use crate::triangle::collect_triangle_barycentric;
+use nalgebra::{Vector2, Vector4};
+
+pub struct VertexFs<V> {
+    pub position: Vector4<f32>,
+    pub varying: V,
+}
 
 pub struct Raster {
     pub viewport: Viewport,
@@ -59,21 +65,27 @@ impl Raster {
 
     pub fn draw<V>(
         &mut self,
-        vertex_shader: fn(index: usize) -> Vertex<V>,
-        fragment_shader: fn(v: Vertex<V>) -> Color,
+        vertex_shader: fn(index: usize) -> VertexFs<V>,
+        fragment_shader: fn(v: VertexFs<V>) -> Color,
         times: usize,
     ) {
-        let vertices: Vec<Vertex<V>> = (0..times).map(vertex_shader).collect();
+        let vertices: Vec<VertexFs<V>> = (0..times).map(vertex_shader).collect();
         // iterate by triangle
         for i in (0..times).step_by(3) {
             let v0 = &vertices[i];
             let v1 = &vertices[i + 1];
             let v2 = &vertices[i + 2];
+            let collection = collect_triangle_barycentric(&v0.position, &v1.position, &v2.position);
+            for (p, bary_coord) in collection {
+                let varying = bary_coord.x * v0.varying
+                    + bary_coord.y * v1.varying
+                    + bary_coord.z * v2.varying;
+                let color = fragment_shader(VertexFs {
+                    position: p,
+                    varying,
+                });
+                self.draw_pixel(&p.xy().map(|x| x as i32), &color);
+            }
         }
     }
-}
-
-pub struct Vertex<V> {
-    pub position: Vector2<f32>,
-    pub varying: V,
 }
