@@ -1,0 +1,9 @@
+[package]
+name = "interpolate"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+interpolate_derive = { path = "../interpolate_derive" }
+nalgebra = { workspace = true }
+num-traits = { workspace = true }

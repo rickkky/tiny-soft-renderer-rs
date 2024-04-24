@@ -1,6 +1,5 @@
-use nalgebra::Vector4;
-
 use crate::color::Color;
+use nalgebra::Vector4;
 
 pub struct VertexFs {
     pub position: Vector4<f32>,

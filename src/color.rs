@@ -1,6 +1,7 @@
+use interpolate::Interpolate;
 use rand::Rng;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Interpolate)]
 pub struct Color {
     pub r: f32,
     pub g: f32,

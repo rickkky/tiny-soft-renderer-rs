@@ -76,16 +76,6 @@ impl Raster {
             let v1 = &vertices[i + 1];
             let v2 = &vertices[i + 2];
             let collection = collect_triangle_barycentric(&v0.position, &v1.position, &v2.position);
-            for (p, bary_coord) in collection {
-                let varying = bary_coord.x * v0.varying
-                    + bary_coord.y * v1.varying
-                    + bary_coord.z * v2.varying;
-                let color = fragment_shader(VertexFs {
-                    position: p,
-                    varying,
-                });
-                self.draw_pixel(&p.xy().map(|x| x as i32), &color);
-            }
         }
     }
 }

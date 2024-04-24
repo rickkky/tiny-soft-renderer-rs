@@ -1,5 +1,5 @@
 use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
-use nalgebra::Vector2;
+use nalgebra::{Vector2, Vector3};
 use rand::Rng;
 use tinyrenderer::{
     basetype::Viewport, color::Color, renderer::Raster, triangle::travel_triangle_barycentric,
@@ -50,7 +50,7 @@ pub fn main() {
                 rng.gen_range(y_min..y_max) as f32,
             );
             let color = Color::new_rand();
-            let draw = |p: Vector2<i32>| {
+            let draw = |p: Vector2<i32>, _: Vector3<f32>| {
                 renderer.draw_pixel(&p, &color);
             };
             travel_triangle_barycentric(&p_0, &p_1, &p_2, draw);
