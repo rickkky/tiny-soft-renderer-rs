@@ -1,6 +1,6 @@
 use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
 use nalgebra::Vector2;
-use tinyrenderer::{basetype::Viewport, color::Color, renderer::Raster};
+use tinyrenderer::{basetype::Viewport, color::Color, rasterizer::Raster};
 
 const WIN_WIDTH: u32 = 800;
 const WIN_HEIGHT: u32 = 800;

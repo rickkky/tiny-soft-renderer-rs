@@ -1,0 +1,231 @@
+diff --git a/examples/gltf-loader.rs b/examples/gltf-loader.rs
+index c18ce79..fb69caa 100644
+--- a/examples/gltf-loader.rs
++++ b/examples/gltf-loader.rs
+@@ -1,6 +1,6 @@
+ use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
+ use nalgebra::Vector2;
+-use tinyrenderer::{basetype::Viewport, color::Color, renderer::Raster};
++use tinyrenderer::{basetype::Viewport, color::Color, rasterizer::Raster};
+
+ const WIN_WIDTH: u32 = 800;
+ const WIN_HEIGHT: u32 = 800;
+diff --git a/examples/line_bresenham.rs b/examples/line_bresenham.rs
+index 05de5fc..ccd718f 100644
+--- a/examples/line_bresenham.rs
++++ b/examples/line_bresenham.rs
+@@ -1,6 +1,6 @@
+ use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
+ use nalgebra::Vector2;
+-use tinyrenderer::{basetype::Viewport, color::Color, renderer::Raster};
++use tinyrenderer::{basetype::Viewport, color::Color, rasterizer::Raster};
+
+ const WIN_WIDTH: u32 = 800;
+ const WIN_HEIGHT: u32 = 800;
+diff --git a/examples/triangle_barycentric.rs b/examples/triangle_barycentric.rs
+index b611e71..fc3431f 100644
+--- a/examples/triangle_barycentric.rs
++++ b/examples/triangle_barycentric.rs
+@@ -2,7 +2,7 @@ use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
+ use nalgebra::{Vector2, Vector3};
+ use rand::Rng;
+ use tinyrenderer::{
+-    basetype::Viewport, color::Color, renderer::Raster, triangle::travel_triangle_barycentric,
++    basetype::Viewport, color::Color, rasterizer::Raster, triangle::travel_triangle_barycentric,
+ };
+
+ const WIN_WIDTH: u32 = 800;
+diff --git a/examples/triangle_sweep_line.rs b/examples/triangle_sweep_line.rs
+index 0c8d60c..274c7bb 100644
+--- a/examples/triangle_sweep_line.rs
++++ b/examples/triangle_sweep_line.rs
+@@ -2,7 +2,7 @@ use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
+ use nalgebra::Vector2;
+ use rand::Rng;
+ use tinyrenderer::{
+-    basetype::Viewport, color::Color, renderer::Raster, triangle::travel_triangle_sweep_line,
++    basetype::Viewport, color::Color, rasterizer::Raster, triangle::travel_triangle_sweep_line,
+ };
+
+ const WIN_WIDTH: u32 = 800;
+diff --git a/packages/interpolate_derive/src/lib.rs b/packages/interpolate_derive/src/lib.rs
+index 58df6cf..dcfd2d7 100644
+--- a/packages/interpolate_derive/src/lib.rs
++++ b/packages/interpolate_derive/src/lib.rs
+@@ -18,11 +18,58 @@ pub fn derive_interpolate(input: proc_macro::TokenStream) -> proc_macro::TokenSt
+ }
+
+ fn interpolate_struct(struct_name: &Ident, data: &DataStruct) -> TokenStream {
+-
+-    let field_linear_impls = match &data.fields {
++    let linear_impls = match &data.fields {
+         Fields::Named(fields) => {
++            let field_names = fields.named.iter().map(|field| &field.ident);
++            let field_impls = fields.named.iter().map(|field| {
++                let field_ty = &field.ty;
++                let field_name = &field.ident;
++                quote! {
++                    <#field_ty as interpolate::Interpolate>::linear_interpolate(&v_0.#field_name, &v_1.#field_name, linear_coord)
++                }
++            });
++            quote! {
++                #(
++                    #field_names: #field_impls,
++                )*
++            }
++        }
++        _ => panic!("Only structs with named fields are supported"),
++    };
+
++    let bary_impls = match &data.fields {
++        Fields::Named(fields) => {
++            let field_names = fields.named.iter().map(|field| &field.ident);
++            let field_impls = fields.named.iter().map(|field| {
++                let field_ty = &field.ty;
++                let field_name = &field.ident;
++                quote! {
++                    <#field_ty as interpolate::Interpolate>::barycentric_interpolate(&v_0.#field_name, &v_1.#field_name, &v_2.#field_name, bary_coord)
++                }
++            });
++            quote! {
++                #(
++                    #field_names: #field_impls,
++                )*
++            }
+         }
+         _ => panic!("Only structs with named fields are supported"),
++    };
++
++    quote! {
++        #[automatically_derived]
++        impl interpolate::Interpolate for #struct_name {
++            fn linear_interpolate<F: num_traits::Float>(v_0: &Self, v_1: &Self, linear_coord: &nalgebra::Vector2<F>) -> Self {
++                Self {
++                    #linear_impls
++                }
++            }
++
++            fn barycentric_interpolate<F: num_traits::Float>(v_0: &Self, v_1: &Self, v_2: &Self, bary_coord: &nalgebra::Vector3<F>) -> Self {
++                Self {
++                    #bary_impls
++                }
++            }
++        }
+     }
+ }
+diff --git a/src/basetype.rs b/src/basetype.rs
+index e73ca79..6e8a191 100644
+--- a/src/basetype.rs
++++ b/src/basetype.rs
+@@ -1,30 +1,5 @@
+ use nalgebra::Vector2;
+-use std::fmt::Debug;
+-use std::ops::{Add, Div, Mul, Sub};
+-
+-pub trait Scalar: 'static + PartialEq + Copy + Debug {}
+-
+-impl<T> Scalar for T where T: 'static + PartialEq + Copy + Debug {}
+-
+-pub trait Number:
+-    Scalar
+-    + PartialOrd
+-    + Add<Output = Self>
+-    + Sub<Output = Self>
+-    + Mul<Output = Self>
+-    + Div<Output = Self>
+-{
+-}
+-
+-impl<T> Number for T where
+-    T: Scalar
+-        + PartialOrd
+-        + Add<Output = Self>
+-        + Sub<Output = Self>
+-        + Mul<Output = Self>
+-        + Div<Output = Self>
+-{
+-}
++use num_traits::Float;
+
+ #[derive(Debug, Clone, Copy)]
+ pub struct Viewport {
+@@ -46,14 +21,14 @@ impl Viewport {
+ }
+
+ #[derive(Debug, Clone, Copy)]
+-pub struct Bbox2<T: Number> {
++pub struct Bbox2<T: Float> {
+     pub l: T,
+     pub r: T,
+     pub b: T,
+     pub t: T,
+ }
+
+-impl<T: Number> Bbox2<T> {
++impl<T: Float> Bbox2<T> {
+     pub fn new(l: T, r: T, b: T, t: T) -> Self {
+         Bbox2 { l, r, b, t }
+     }
+@@ -62,22 +37,22 @@ impl<T: Number> Bbox2<T> {
+         if points.is_empty() {
+             panic!("The input points are empty.");
+         }
+-        let mut l = points[0].x;
+-        let mut r = points[0].x;
+-        let mut b = points[0].y;
+-        let mut t = points[0].y;
++        let mut l = points[0][0];
++        let mut r = points[0][0];
++        let mut b = points[0][1];
++        let mut t = points[0][1];
+         for p in points {
+-            if p.x < l {
+-                l = p.x;
++            if p[0] < l {
++                l = p[0];
+             }
+-            if p.x > r {
+-                r = p.x;
++            if p[0] > r {
++                r = p[0];
+             }
+-            if p.y < b {
+-                b = p.y;
++            if p[1] < b {
++                b = p[1];
+             }
+-            if p.y > t {
+-                t = p.y;
++            if p[1] > t {
++                t = p[1];
+             }
+         }
+         Bbox2 { l, r, b, t }
+diff --git a/src/lib.rs b/src/lib.rs
+index 73013ba..77b6aa4 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -3,6 +3,8 @@ pub mod color;
+ pub mod line;
+ pub mod loader;
+ pub mod mesh;
+-pub mod renderer;
++pub mod rasterizer;
+ pub mod shader;
+ pub mod triangle;
++
++pub use interpolate;
+diff --git a/src/renderer.rs b/src/rasterizer.rs
+similarity index 100%
+rename from src/renderer.rs
+rename to src/rasterizer.rs
+diff --git a/src/shader.rs b/src/shader.rs
+index 2775f3b..2810aeb 100644
+--- a/src/shader.rs
++++ b/src/shader.rs
+@@ -1,4 +1,5 @@
+ use crate::color::Color;
++use interpolate::Interpolate;
+ use nalgebra::Vector4;
+
+ pub struct VertexFs {

@@ -1,4 +1,5 @@
 use crate::color::Color;
+use interpolate::Interpolate;
 use nalgebra::Vector4;
 
 pub struct VertexFs {

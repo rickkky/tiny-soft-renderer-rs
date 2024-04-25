@@ -2,7 +2,7 @@ use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
 use nalgebra::{Vector2, Vector3};
 use rand::Rng;
 use tinyrenderer::{
-    basetype::Viewport, color::Color, renderer::Raster, triangle::travel_triangle_barycentric,
+    basetype::Viewport, color::Color, rasterizer::Raster, triangle::travel_triangle_barycentric,
 };
 
 const WIN_WIDTH: u32 = 800;
