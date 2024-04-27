@@ -2,20 +2,18 @@ use crate::basetype::{Bbox2, Viewport};
 use crate::color::Color;
 use crate::line::{clip_line, travel_line_bresenham};
 use crate::mesh::Mesh;
+use crate::pipelilne;
+use crate::shader::VertexFs;
 use crate::triangle::collect_triangle_barycentric;
+use interpolate::Interpolate;
 use nalgebra::{Vector2, Vector4};
 
-pub struct VertexFs<V> {
-    pub position: Vector4<f32>,
-    pub varying: V,
-}
-
-pub struct Raster {
+pub struct Rasterizer {
     pub viewport: Viewport,
     pub frame_buffer: Vec<u8>,
 }
 
-impl Raster {
+impl Rasterizer {
     pub fn new(viewport: Viewport) -> Self {
         let pixel_count = (viewport.width * viewport.height) as usize;
         Self {
@@ -63,13 +61,8 @@ impl Raster {
         travel_line_bresenham(&p_0, &p_1, draw);
     }
 
-    pub fn draw<V>(
-        &mut self,
-        vertex_shader: fn(index: usize) -> VertexFs<V>,
-        fragment_shader: fn(v: VertexFs<V>) -> Color,
-        times: usize,
-    ) {
-        let vertices: Vec<VertexFs<V>> = (0..times).map(vertex_shader).collect();
+    pub fn draw<V: Interpolate>(&mut self, pipeline: &pipelilne::Pipeline<V>, times: usize) {
+        let vertices: Vec<VertexFs<V>> = (0..times).map(pipeline.vertex_shader).collect();
         // iterate by triangle
         for i in (0..times).step_by(3) {
             let v0 = &vertices[i];
