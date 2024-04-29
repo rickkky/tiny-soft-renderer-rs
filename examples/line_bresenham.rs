@@ -10,10 +10,10 @@ pub fn main() {
     let mut win = fltk::window::Window::new(100, 100, WIN_WIDTH as i32, WIN_HEIGHT as i32, "Test");
 
     let viewport = Viewport::new(0, 0, WIN_WIDTH, WIN_HEIGHT);
-    let mut renderer = Rasterizer::new(viewport);
+    let mut rasterizer = Rasterizer::new(viewport);
 
     win.draw(move |_| {
-        renderer.clear();
+        rasterizer.clear();
 
         let x_center = WIN_WIDTH as f32 / 2.0;
         let y_center = WIN_HEIGHT as f32 / 2.0;
@@ -23,7 +23,7 @@ pub fn main() {
             let angle = i as f32 * std::f32::consts::PI / (2.0 * 12.0);
             let cos = angle.cos();
             let sin = angle.sin();
-            renderer.draw_line(
+            rasterizer.draw_line(
                 &Vector2::new(x_center + r_0 * cos, y_center + r_0 * sin),
                 &Vector2::new(x_center + r_1 * cos, y_center + r_1 * sin),
                 &Color::new_rand(),
@@ -31,7 +31,7 @@ pub fn main() {
         }
 
         fltk::draw::draw_image(
-            &renderer.frame_buffer,
+            &rasterizer.frame_buffer,
             0,
             0,
             WIN_WIDTH as i32,

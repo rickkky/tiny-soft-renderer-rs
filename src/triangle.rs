@@ -1,5 +1,5 @@
 use crate::basetype::Bbox2;
-use nalgebra::{Vector2, Vector3, Vector4};
+use nalgebra::{Vector2, Vector3};
 
 pub fn travel_triangle_sweep_line<T: FnMut(Vector2<i32>)>(
     p_0: &Vector2<f32>,
@@ -78,19 +78,6 @@ pub fn travel_triangle_barycentric<T: FnMut(Vector2<i32>, Vector3<f32>)>(
             action(Vector2::new(x, y), bary_coord);
         }
     }
-}
-
-pub fn collect_triangle_barycentric(
-    p_0: &Vector4<f32>,
-    p_1: &Vector4<f32>,
-    p_2: &Vector4<f32>,
-) -> Vec<(Vector4<f32>, Vector3<f32>)> {
-    let mut points = Vec::new();
-    travel_triangle_barycentric(&p_0.xy(), &p_1.xy(), &p_2.xy(), |p, bary_coord| {
-        let z = bary_coord.x * p_0.z + bary_coord.y * p_1.z + bary_coord.z * p_2.z;
-        points.push((Vector4::new(p.x as f32, p.y as f32, z, 1.0), bary_coord));
-    });
-    points
 }
 
 pub fn compute_barycentric_coordinate(

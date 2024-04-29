@@ -1,16 +1,25 @@
 use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
-use nalgebra::Vector2;
-use tinyrenderer::{basetype::Viewport, color::Color, rasterizer::Rasterizer};
+use nalgebra::{Vector2, Vector4};
+use tinyrenderer::{
+    basetype::Viewport, color::Color, interpolate::Interpolate, rasterizer::Rasterizer,
+};
+
+#[derive(Interpolate)]
+struct Varying {
+    pub color: Color,
+}
 
 const WIN_WIDTH: u32 = 800;
 const WIN_HEIGHT: u32 = 800;
 
-fn transform_position(position: [f32; 3]) -> Vector2<f32> {
+fn transform_position(position: [f32; 3]) -> Vector4<f32> {
     let ratio = 10.0;
     let offset_y = -200.0;
-    Vector2::new(
+    Vector4::new(
         position[0] * WIN_WIDTH as f32 * ratio + WIN_WIDTH as f32 / 2.0,
         position[1] * WIN_HEIGHT as f32 * ratio + WIN_HEIGHT as f32 / 2.0 + offset_y,
+        position[2],
+        1.0,
     )
 }
 
@@ -19,12 +28,12 @@ pub fn main() {
     let mut win = fltk::window::Window::new(100, 100, WIN_WIDTH as i32, WIN_HEIGHT as i32, "Test");
 
     let viewport = Viewport::new(0, 0, WIN_WIDTH, WIN_HEIGHT);
-    let mut renderer = Rasterizer::new(viewport);
+    let mut rasterizer = Rasterizer::new(viewport);
 
     let (document, buffers, images) = gltf::import("models/Avocado/glTF/Avocado.gltf").unwrap();
 
     win.draw(move |_| {
-        renderer.clear();
+        rasterizer.clear();
 
         for mesh in document.meshes() {
             for primitive in mesh.primitives() {
@@ -40,21 +49,32 @@ pub fn main() {
                 };
                 let indices: Vec<u32> = indices.into_u32().collect();
 
+                let mut vertices = Vec::new();
+
                 for i in (0..indices.len()).step_by(3) {
                     let p_0 = transform_position(positions[indices[i] as usize]);
                     let p_1 = transform_position(positions[indices[i + 1] as usize]);
                     let p_2 = transform_position(positions[indices[i + 2] as usize]);
-                    println!("{:?} {:?} {:?}", p_0, p_1, p_2);
-                    let color = Color::new(1.0, 1.0, 1.0, 1.0);
-                    renderer.draw_line(&p_0, &p_1, &color);
-                    renderer.draw_line(&p_1, &p_2, &color);
-                    renderer.draw_line(&p_2, &p_0, &color);
+                    let color = Color::new_rand();
+                    let v_0 = VertexFs {
+                        position: p_0,
+                        varying: Varying { color },
+                    };
+                    let v_1 = VertexFs {
+                        position: p_1,
+                        varying: Varying { color },
+                    };
+                    let v_2 = VertexFs {
+                        position: p_2,
+                        varying: Varying { color },
+                    };
+                    vertices
                 }
             }
         }
 
         fltk::draw::draw_image(
-            &renderer.frame_buffer,
+            &rasterizer.frame_buffer,
             0,
             0,
             WIN_WIDTH as i32,
