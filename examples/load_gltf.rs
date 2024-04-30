@@ -21,7 +21,7 @@ pub fn main() {
     let viewport = Viewport::new(0, 0, WIN_WIDTH, WIN_HEIGHT);
     let mut rasterizer = Rasterizer::new(viewport);
 
-    let (document, buffers, images) = gltf::import("models/Avocado/glTF/Avocado.gltf").unwrap();
+    let (document, buffers, _images) = gltf::import("models/Avocado/glTF/Avocado.gltf").unwrap();
 
     win.draw(move |_| {
         rasterizer.clear();

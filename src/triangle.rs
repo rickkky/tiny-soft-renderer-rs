@@ -70,7 +70,6 @@ pub fn travel_triangle_barycentric<T: FnMut(Vector2<i32>, Vector3<f32>)>(
         for y in bbox.b.floor() as i32..=bbox.t.ceil() as i32 {
             let p = Vector2::new(x as f32, y as f32);
             let bary_coord = compute_barycentric_coordinate(p_0, p_1, p_2, &p);
-
             if !is_barycentric_coordinate_inside(&bary_coord) {
                 continue;
             }

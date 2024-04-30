@@ -1,12 +1,41 @@
 use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
-use nalgebra::{Vector2, Vector4};
+use nalgebra::{Vector3, Vector4};
 use tinyrenderer::{
-    basetype::Viewport, color::Color, interpolate::Interpolate, rasterizer::Rasterizer,
+    basetype::Viewport,
+    color::Color,
+    interpolate::Interpolate,
+    rasterizer::Rasterizer,
+    shader::{Shader, VertexFs},
 };
 
 #[derive(Interpolate)]
 struct Varying {
     pub color: Color,
+}
+
+struct Renderer {
+    vertices: Vec<Vector4<f32>>,
+
+    normals: Vec<Vector3<f32>>,
+
+    colors: Vec<Color>,
+
+    light_dir: Vector3<f32>,
+}
+
+impl Shader<Varying> for Renderer {
+    fn vertex_shader(&self, index: usize) -> VertexFs<Varying> {
+        VertexFs {
+            position: self.vertices[index],
+            varying: Varying {
+                color: self.colors[index / 3],
+            },
+        }
+    }
+
+    fn fragment_shader(&self, vertex: VertexFs<Varying>) -> Color {
+        vertex.varying.color
+    }
 }
 
 const WIN_WIDTH: u32 = 800;
@@ -30,7 +59,7 @@ pub fn main() {
     let viewport = Viewport::new(0, 0, WIN_WIDTH, WIN_HEIGHT);
     let mut rasterizer = Rasterizer::new(viewport);
 
-    let (document, buffers, images) = gltf::import("models/Avocado/glTF/Avocado.gltf").unwrap();
+    let (document, buffers, _images) = gltf::import("models/Avocado/glTF/Avocado.gltf").unwrap();
 
     win.draw(move |_| {
         rasterizer.clear();
@@ -44,32 +73,41 @@ pub fn main() {
                 let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
                 let positions: Vec<[f32; 3]> = reader.read_positions().unwrap().collect();
-                let Some(indices) = reader.read_indices() else {
-                    continue;
-                };
-                let indices: Vec<u32> = indices.into_u32().collect();
+                let indices = reader
+                    .read_indices()
+                    .unwrap()
+                    .into_u32()
+                    .collect::<Vec<u32>>();
+                let raw_normals = reader.read_normals().unwrap().collect::<Vec<[f32; 3]>>();
 
                 let mut vertices = Vec::new();
+                let mut normals = Vec::new();
+                let mut colors = Vec::new();
 
                 for i in (0..indices.len()).step_by(3) {
                     let p_0 = transform_position(positions[indices[i] as usize]);
                     let p_1 = transform_position(positions[indices[i + 1] as usize]);
                     let p_2 = transform_position(positions[indices[i + 2] as usize]);
+                    vertices.push(p_0);
+                    vertices.push(p_1);
+                    vertices.push(p_2);
+                    let n_0 = Vector3::from(raw_normals[indices[i] as usize]);
+                    let n_1 = Vector3::from(raw_normals[indices[i + 1] as usize]);
+                    let n_2 = Vector3::from(raw_normals[indices[i + 2] as usize]);
+                    normals.push(n_0);
+                    normals.push(n_1);
+                    normals.push(n_2);
                     let color = Color::new_rand();
-                    let v_0 = VertexFs {
-                        position: p_0,
-                        varying: Varying { color },
-                    };
-                    let v_1 = VertexFs {
-                        position: p_1,
-                        varying: Varying { color },
-                    };
-                    let v_2 = VertexFs {
-                        position: p_2,
-                        varying: Varying { color },
-                    };
-                    vertices
+                    colors.push(color);
                 }
+
+                let renderer = Renderer {
+                    vertices,
+                    normals,
+                    colors,
+                    light_dir: Vector3::new(0.0, 0.0, -1.0),
+                };
+                rasterizer.draw(&renderer, renderer.vertices.len());
             }
         }
 

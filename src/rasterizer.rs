@@ -1,8 +1,7 @@
 use crate::basetype::{Bbox2, Viewport};
 use crate::color::Color;
 use crate::line::{clip_line, travel_line_bresenham};
-use crate::pipelilne;
-use crate::shader::VertexFs;
+use crate::shader::{Shader, VertexFs};
 use interpolate::Interpolate;
 use nalgebra::Vector2;
 
@@ -59,8 +58,10 @@ impl Rasterizer {
         travel_line_bresenham(&p_0, &p_1, draw);
     }
 
-    pub fn draw<V: Interpolate>(&mut self, pipeline: &pipelilne::Pipeline<V>, times: usize) {
-        let vertices: Vec<VertexFs<V>> = (0..times).map(pipeline.vertex_shader).collect();
+    pub fn draw<V: Interpolate>(&mut self, shader: &impl Shader<V>, times: usize) {
+        let vertices: Vec<VertexFs<V>> = (0..times)
+            .map(|index| shader.vertex_shader(index))
+            .collect();
         for i in (0..times).step_by(3) {
             let v_0 = &vertices[i];
             let v_1 = &vertices[i + 1];
@@ -68,7 +69,7 @@ impl Rasterizer {
             let collection = VertexFs::collect_triangle_barycentric(v_0, v_1, v_2);
             for v in collection {
                 let position = v.position.xy().map(|x| x as i32);
-                let color = (pipeline.fragment_shader)(v);
+                let color = shader.fragment_shader(v);
                 self.draw_pixel(&position, &color);
             }
         }

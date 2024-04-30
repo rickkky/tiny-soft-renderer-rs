@@ -3,6 +3,13 @@ use interpolate::Interpolate;
 use nalgebra::{Vector3, Vector4};
 use num_traits::Float;
 
+pub trait Shader<V: Interpolate> {
+    fn vertex_shader(&self, index: usize) -> VertexFs<V>;
+
+    fn fragment_shader(&self, vertex: VertexFs<V>) -> Color;
+}
+
+#[derive(Debug, Copy, Clone)]
 pub struct VertexFs<V: Interpolate> {
     pub position: Vector4<f32>,
 
@@ -44,7 +51,7 @@ impl<V: Interpolate> VertexFs<V> {
         travel_triangle_barycentric(
             &v_0.position.xy(),
             &v_1.position.xy(),
-            &v_1.position.xy(),
+            &v_2.position.xy(),
             |p, bary_coord| {
                 let z = f32::barycentric_interpolate(
                     &v_0.position.z,
@@ -65,7 +72,3 @@ impl<V: Interpolate> VertexFs<V> {
         vertices
     }
 }
-
-pub type VertesShader<V> = fn(index: usize) -> VertexFs<V>;
-
-pub type FragmentShader<V> = fn(v: VertexFs<V>) -> Color;
