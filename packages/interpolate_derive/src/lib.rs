@@ -1,23 +1,32 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Data, DataStruct, DeriveInput, Fields, Ident};
+use syn::{Data, DataStruct, DeriveInput, Fields};
 
 #[proc_macro_derive(Interpolate)]
 pub fn derive_interpolate(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast: DeriveInput = syn::parse_macro_input!(input);
 
-    let struct_name = &ast.ident;
+    let name = &ast.ident;
+    let generics = &ast.generics;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    let expanded = match ast.data {
-        Data::Struct(data) => interpolate_struct(struct_name, &data),
+    let impl_fns = match ast.data {
+        Data::Struct(data) => interpolate_struct(&data),
         Data::Enum(_) => unimplemented!(),
         Data::Union(_) => unimplemented!(),
+    };
+
+    let expanded = quote! {
+        #[automatically_derived]
+        impl #impl_generics interpolate::Interpolate for #name #ty_generics #where_clause {
+            #impl_fns
+        }
     };
 
     expanded.into()
 }
 
-fn interpolate_struct(struct_name: &Ident, data: &DataStruct) -> TokenStream {
+fn interpolate_struct(data: &DataStruct) -> TokenStream {
     let linear_impls = match &data.fields {
         Fields::Named(fields) => {
             let field_names = fields.named.iter().map(|field| &field.ident);
@@ -57,18 +66,15 @@ fn interpolate_struct(struct_name: &Ident, data: &DataStruct) -> TokenStream {
     };
 
     quote! {
-        #[automatically_derived]
-        impl interpolate::Interpolate for #struct_name {
-            fn linear_interpolate<F: num_traits::Float>(v_0: &Self, v_1: &Self, linear_coord: &nalgebra::Vector2<F>) -> Self {
-                Self {
-                    #linear_impls
-                }
+        fn linear_interpolate<F: num_traits::Float>(v_0: &Self, v_1: &Self, linear_coord: &nalgebra::Vector2<F>) -> Self {
+            Self {
+                #linear_impls
             }
+        }
 
-            fn barycentric_interpolate<F: num_traits::Float>(v_0: &Self, v_1: &Self, v_2: &Self, bary_coord: &nalgebra::Vector3<F>) -> Self {
-                Self {
-                    #bary_impls
-                }
+        fn barycentric_interpolate<F: num_traits::Float>(v_0: &Self, v_1: &Self, v_2: &Self, bary_coord: &nalgebra::Vector3<F>) -> Self {
+            Self {
+                #bary_impls
             }
         }
     }

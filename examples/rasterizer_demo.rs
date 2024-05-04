@@ -5,7 +5,7 @@ use tinyrenderer::{
     color::Color,
     interpolate::Interpolate,
     rasterizer::Rasterizer,
-    shader::{Shader, VertexFs},
+    shader::{ShaderProgramStruct, ShaderProgramTrait, VertexFs},
 };
 
 #[derive(Interpolate)]
@@ -23,13 +23,16 @@ struct Renderer {
     light_dir: Vector3<f32>,
 }
 
-impl Shader<Varying> for Renderer {
+impl ShaderProgramTrait for Renderer {
+    type Varying = Varying;
+
     fn vertex_shader(&self, index: usize) -> VertexFs<Varying> {
+        let normal = self.normals[index];
+        let intensity = self.light_dir.dot(&normal).max(0.0);
+        let color = self.colors[index / 3] * intensity;
         VertexFs {
             position: self.vertices[index],
-            varying: Varying {
-                color: self.colors[index / 3],
-            },
+            varying: Varying { color },
         }
     }
 
@@ -97,17 +100,25 @@ pub fn main() {
                     normals.push(n_0);
                     normals.push(n_1);
                     normals.push(n_2);
-                    let color = Color::new_rand();
+                    let color = Color::new(0.5, 0.5, 0.5, 1.0);
                     colors.push(color);
                 }
 
+                let times = vertices.len();
                 let renderer = Renderer {
                     vertices,
                     normals,
                     colors,
                     light_dir: Vector3::new(0.0, 0.0, -1.0),
                 };
-                rasterizer.draw(&renderer, renderer.vertices.len());
+                let vertex_shader = Box::new(|index| renderer.vertex_shader(index));
+                let fragment_shader = Box::new(|vertex| renderer.fragment_shader(vertex));
+                let mut program: ShaderProgramStruct<Varying> = ShaderProgramStruct::<Varying> {
+                    vertex_shader: Box::new(vertex_shader),
+                    fragment_shader: Box::new(fragment_shader),
+                };
+                // rasterizer.draw_trait::<Varying>(&renderer, times);
+                rasterizer.draw_struct::<Varying>(&mut program, times);
             }
         }
 

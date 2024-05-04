@@ -1,13 +1,16 @@
 use crate::basetype::{Bbox2, Viewport};
 use crate::color::Color;
 use crate::line::{clip_line, travel_line_bresenham};
-use crate::shader::{Shader, VertexFs};
+use crate::shader::{ShaderProgramStruct, ShaderProgramTrait, VertexFs};
 use interpolate::Interpolate;
 use nalgebra::Vector2;
 
 pub struct Rasterizer {
     pub viewport: Viewport,
+
     pub frame_buffer: Vec<u8>,
+
+    pub depth_buffer: Vec<f32>,
 }
 
 impl Rasterizer {
@@ -16,6 +19,7 @@ impl Rasterizer {
         Self {
             viewport,
             frame_buffer: vec![0; pixel_count * 4],
+            depth_buffer: vec![f32::MAX; pixel_count],
         }
     }
 
@@ -58,10 +62,15 @@ impl Rasterizer {
         travel_line_bresenham(&p_0, &p_1, draw);
     }
 
-    pub fn draw<V: Interpolate>(&mut self, shader: &impl Shader<V>, times: usize) {
+    pub fn draw_struct<V: Interpolate>(
+        &mut self,
+        shader: &mut ShaderProgramStruct<V>,
+        times: usize,
+    ) {
         let vertices: Vec<VertexFs<V>> = (0..times)
-            .map(|index| shader.vertex_shader(index))
+            .map(|index| (shader.vertex_shader)(index))
             .collect();
+
         for i in (0..times).step_by(3) {
             let v_0 = &vertices[i];
             let v_1 = &vertices[i + 1];
@@ -69,6 +78,46 @@ impl Rasterizer {
             let collection = VertexFs::collect_triangle_barycentric(v_0, v_1, v_2);
             for v in collection {
                 let position = v.position.xy().map(|x| x as i32);
+
+                let depth = v.position.z;
+                let depth_index = (position.x + position.y * self.viewport.width as i32) as usize;
+                let prev_depth = &mut self.depth_buffer[depth_index];
+                if depth >= *prev_depth {
+                    continue;
+                }
+                *prev_depth = depth;
+
+                let color = (shader.fragment_shader)(v);
+                self.draw_pixel(&position, &color);
+            }
+        }
+    }
+
+    pub fn draw_trait<V: Interpolate>(
+        &mut self,
+        shader: &impl ShaderProgramTrait<Varying = V>,
+        times: usize,
+    ) {
+        let vertices: Vec<VertexFs<V>> = (0..times)
+            .map(|index| shader.vertex_shader(index))
+            .collect();
+
+        for i in (0..times).step_by(3) {
+            let v_0 = &vertices[i];
+            let v_1 = &vertices[i + 1];
+            let v_2 = &vertices[i + 2];
+            let collection = VertexFs::collect_triangle_barycentric(v_0, v_1, v_2);
+            for v in collection {
+                let position = v.position.xy().map(|x| x as i32);
+
+                let depth = v.position.z;
+                let depth_index = (position.x + position.y * self.viewport.width as i32) as usize;
+                let prev_depth = &mut self.depth_buffer[depth_index];
+                if depth >= *prev_depth {
+                    continue;
+                }
+                *prev_depth = depth;
+
                 let color = shader.fragment_shader(v);
                 self.draw_pixel(&position, &color);
             }

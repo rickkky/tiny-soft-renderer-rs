@@ -1,5 +1,6 @@
 use interpolate::Interpolate;
 use rand::Rng;
+use std::ops::Mul;
 
 #[derive(Debug, Clone, Copy, Interpolate)]
 pub struct Color {
@@ -42,5 +43,18 @@ impl Color {
 impl Default for Color {
     fn default() -> Self {
         Self::BLACK
+    }
+}
+
+impl Mul<f32> for Color {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self {
+        Self {
+            r: self.r * rhs,
+            g: self.g * rhs,
+            b: self.b * rhs,
+            a: self.a,
+        }
     }
 }

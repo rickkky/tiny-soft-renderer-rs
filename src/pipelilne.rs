@@ -1,1 +1,2 @@
-pub struct Pipeline {}
+use crate::shader::ShaderProgramStruct;
+use interpolate::Interpolate;
