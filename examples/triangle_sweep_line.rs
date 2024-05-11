@@ -2,7 +2,7 @@ use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
 use nalgebra::Vector2;
 use rand::Rng;
 use tinyrenderer::{
-    basetype::Viewport, color::Color, rasterizer::Rasterizer, triangle::travel_triangle_sweep_line,
+    basetype::Viewport, color::Color, pass::RenderPass, triangle::travel_triangle_sweep_line,
 };
 
 const WIN_WIDTH: u32 = 800;
@@ -13,10 +13,10 @@ pub fn main() {
     let mut win = fltk::window::Window::new(100, 100, WIN_WIDTH as i32, WIN_HEIGHT as i32, "Test");
 
     let viewport = Viewport::new(0, 0, WIN_WIDTH, WIN_HEIGHT);
-    let mut rasterizer = Rasterizer::new(viewport);
+    let mut pass = RenderPass::new(viewport);
 
     win.draw(move |_| {
-        rasterizer.clear();
+        pass.clear();
 
         let mut rng = rand::thread_rng();
 
@@ -27,12 +27,12 @@ pub fn main() {
             let x_max = (WIN_WIDTH / 4) * (col + 1);
             let y_min = (WIN_HEIGHT / 4) * row;
             let y_max = (WIN_HEIGHT / 4) * (row + 1);
-            rasterizer.draw_line(
+            pass.draw_line(
                 &Vector2::new(x_max as f32, y_min as f32),
                 &Vector2::new(x_max as f32, y_max as f32),
                 &Color::WHITE,
             );
-            rasterizer.draw_line(
+            pass.draw_line(
                 &Vector2::new(x_min as f32, y_max as f32),
                 &Vector2::new(x_max as f32, y_max as f32),
                 &Color::WHITE,
@@ -51,13 +51,13 @@ pub fn main() {
             );
             let color = Color::new_rand();
             let draw = |p: Vector2<i32>| {
-                rasterizer.draw_pixel(&p, &color);
+                pass.draw_pixel(&p, &color);
             };
             travel_triangle_sweep_line(&p_0, &p_1, &p_2, draw);
         }
 
         fltk::draw::draw_image(
-            &rasterizer.frame_buffer,
+            &pass.frame_buffer,
             0,
             0,
             WIN_WIDTH as i32,

@@ -1,6 +1,6 @@
 use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
 use nalgebra::Vector2;
-use tinyrenderer::{basetype::Viewport, color::Color, rasterizer::Rasterizer};
+use tinyrenderer::{basetype::Viewport, color::Color, pass::RenderPass};
 
 const WIN_WIDTH: u32 = 800;
 const WIN_HEIGHT: u32 = 800;
@@ -10,10 +10,10 @@ pub fn main() {
     let mut win = fltk::window::Window::new(100, 100, WIN_WIDTH as i32, WIN_HEIGHT as i32, "Test");
 
     let viewport = Viewport::new(0, 0, WIN_WIDTH, WIN_HEIGHT);
-    let mut rasterizer = Rasterizer::new(viewport);
+    let mut pass = RenderPass::new(viewport);
 
     win.draw(move |_| {
-        rasterizer.clear();
+        pass.clear();
 
         let x_center = WIN_WIDTH as f32 / 2.0;
         let y_center = WIN_HEIGHT as f32 / 2.0;
@@ -23,7 +23,7 @@ pub fn main() {
             let angle = i as f32 * std::f32::consts::PI / (2.0 * 12.0);
             let cos = angle.cos();
             let sin = angle.sin();
-            rasterizer.draw_line(
+            pass.draw_line(
                 &Vector2::new(x_center + r_0 * cos, y_center + r_0 * sin),
                 &Vector2::new(x_center + r_1 * cos, y_center + r_1 * sin),
                 &Color::new_rand(),
@@ -31,7 +31,7 @@ pub fn main() {
         }
 
         fltk::draw::draw_image(
-            &rasterizer.frame_buffer,
+            &pass.frame_buffer,
             0,
             0,
             WIN_WIDTH as i32,
