@@ -6,11 +6,11 @@ use tinyrenderer::{
     interpolate::Interpolate,
     pass::RenderPass,
     pipeline::{CullMode, DepthCompare, Pipeline},
-    shader::{FsPayload, ShaderProgram, Varying},
+    shader::{FsPayload, ShaderProgram, VsOutput},
 };
 
 #[derive(Interpolate)]
-struct VaryingExtra {
+struct Varying {
     pub color: Color,
 }
 
@@ -25,20 +25,20 @@ struct Renderer {
 }
 
 impl ShaderProgram for Renderer {
-    type VaryingExtra = VaryingExtra;
+    type Varying = Varying;
 
-    fn vertex_shader(&self, index: usize) -> Varying<Self::VaryingExtra> {
+    fn vertex_shader(&self, index: usize) -> VsOutput<Self::Varying> {
         let normal = self.normals[index];
         let intensity = self.light_dir.dot(&normal).max(0.0);
         let color = self.colors[index / 3] * intensity;
-        Varying {
+        VsOutput {
             position: self.vertices[index],
-            extra: Self::VaryingExtra { color },
+            varying: Self::Varying { color },
         }
     }
 
-    fn fragment_shader(&self, payload: FsPayload<Self::VaryingExtra>) -> Color {
-        payload.varying.extra.color
+    fn fragment_shader(&self, payload: FsPayload<Self::Varying>) -> Color {
+        payload.varying.color
     }
 }
 
@@ -118,7 +118,7 @@ pub fn main() {
                     depth_write_enable: true,
                     depth_compare: DepthCompare::Less,
                 };
-                pass.draw::<VaryingExtra>(&mut pipeline, times);
+                pass.draw::<Varying>(&mut pipeline, times);
             }
         }
 

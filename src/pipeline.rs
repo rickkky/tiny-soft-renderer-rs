@@ -34,8 +34,8 @@ impl DepthCompare {
     }
 }
 
-pub struct Pipeline<'a, I: Interpolate = ()> {
-    pub program: &'a dyn ShaderProgram<VaryingExtra = I>,
+pub struct Pipeline<'a, V: Interpolate = ()> {
+    pub program: &'a dyn ShaderProgram<Varying = V>,
 
     pub cull_mode: CullMode,
 

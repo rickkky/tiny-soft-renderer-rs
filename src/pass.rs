@@ -3,7 +3,7 @@ use crate::{
     color::Color,
     line::{clip_line, travel_line_bresenham},
     pipeline::{DepthCompare, Pipeline},
-    shader::{FsPayload, Varying},
+    shader::{FsPayload, VsOutput},
     triangle::travel_triangle_barycentric,
 };
 use interpolate::Interpolate;
@@ -71,12 +71,12 @@ impl RenderPass {
         });
     }
 
-    pub fn draw<'a, I: Interpolate>(
+    pub fn draw<'a, V: Interpolate>(
         &mut self,
-        pipeline: &mut Pipeline<'a, I>,
+        pipeline: &mut Pipeline<'a, V>,
         vertex_count: usize,
     ) {
-        let varyings: Vec<Varying<I>> = (0..vertex_count)
+        let varyings: Vec<VsOutput<V>> = (0..vertex_count)
             .map(|index| pipeline.program.vertex_shader(index))
             .collect();
 
@@ -86,11 +86,11 @@ impl RenderPass {
             let v_2 = &varyings[i + 2];
             let collection = collect_triangle(v_0, v_1, v_2);
 
-            for (varying, bary_coord) in collection {
-                let position = varying.position.xy().map(|v| v as i32);
+            for payload in collection {
+                let position = payload.position.xy().map(|v| v as i32);
 
                 if pipeline.depth_write_enable {
-                    let depth = varying.position.z;
+                    let depth = payload.position.z;
                     let depth_index =
                         (position.x + position.y * self.viewport.width as i32) as usize;
                     let prev = &mut self.depth_buffer[depth_index];
@@ -100,22 +100,17 @@ impl RenderPass {
                     *prev = depth;
                 }
 
-                let payload = FsPayload {
-                    varying,
-                    bary_coord,
-                };
-                let color = pipeline.program.fragment_shader(payload);
-                self.draw_pixel(&position, &color);
+                self.draw_pixel(&position, &pipeline.program.fragment_shader(payload));
             }
         }
     }
 }
 
-fn collect_triangle<I: Interpolate>(
-    v_0: &Varying<I>,
-    v_1: &Varying<I>,
-    v_2: &Varying<I>,
-) -> Vec<(Varying<I>, Vector3<f32>)> {
+fn collect_triangle<V: Interpolate>(
+    v_0: &VsOutput<V>,
+    v_1: &VsOutput<V>,
+    v_2: &VsOutput<V>,
+) -> Vec<FsPayload<V>> {
     let mut vertices = Vec::new();
     let action = |p: Vector2<i32>, bary_coord: Vector3<f32>| {
         let z = f32::barycentric_interpolate(
@@ -125,8 +120,13 @@ fn collect_triangle<I: Interpolate>(
             &bary_coord,
         );
         let position = Vector4::new(p.x as f32, p.y as f32, z, 1.0);
-        let extra = I::barycentric_interpolate(&v_0.extra, &v_1.extra, &v_2.extra, &bary_coord);
-        vertices.push((Varying { position, extra }, bary_coord));
+        let extra =
+            V::barycentric_interpolate(&v_0.varying, &v_1.varying, &v_2.varying, &bary_coord);
+        vertices.push(FsPayload {
+            position,
+            varying: extra,
+            bary_coord,
+        });
     };
     travel_triangle_barycentric(
         &v_0.position.xy(),
