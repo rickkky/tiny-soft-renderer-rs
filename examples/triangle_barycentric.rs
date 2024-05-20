@@ -57,7 +57,12 @@ pub fn main() {
         }
 
         fltk::draw::draw_image(
-            &pass.frame_buffer,
+            &pass
+                .frame_texture
+                .data
+                .iter()
+                .map(|&x| (x * 255.0) as u8)
+                .collect::<Vec<u8>>(),
             0,
             0,
             WIN_WIDTH as i32,

@@ -1,3 +1,5 @@
+use nalgebra::Vector2;
+
 pub enum SamplingMethod {
     Nearest,
     Bilinear,
@@ -9,27 +11,27 @@ pub enum EdgeBehavior {
 }
 
 impl EdgeBehavior {
-    fn edge(self, u: f32, v: f32) -> (f32, f32) {
+    fn edge(self, uv: &Vector2<f32>) -> Vector2<f32> {
         match self {
-            EdgeBehavior::Clamp => (u.min(1.0).max(0.0), v.min(1.0).max(0.0)),
-            EdgeBehavior::Wrap => (u.fract(), v.fract()),
+            EdgeBehavior::Clamp => Vector2::new(uv.x.min(1.0).max(0.0), uv.y.min(1.0).max(0.0)),
+            EdgeBehavior::Wrap => Vector2::new(uv.x.fract(), uv.y.fract()),
         }
     }
 }
 
 pub struct Texture {
-    pub width: u32,
+    pub width: usize,
 
-    pub height: u32,
+    pub height: usize,
 
-    pub stride: u32,
+    pub stride: usize,
 
     pub data: Vec<f32>,
 }
 
 impl Texture {
-    pub fn new(width: u32, height: u32, stride: u32) -> Self {
-        let data = vec![0.0; (width * height * stride) as usize];
+    pub fn new(width: usize, height: usize, stride: usize) -> Self {
+        let data = vec![0.0; width * height * stride];
         Self {
             width,
             height,
@@ -38,45 +40,60 @@ impl Texture {
         }
     }
 
-    pub fn get_texel(&self, x: u32, y: u32) -> &[f32] {
-        let index = (x + y * self.width) as usize * self.stride as usize;
-        &self.data[index..index + self.stride as usize]
+    pub fn get_texel(&self, p: &Vector2<usize>) -> &[f32] {
+        let index = (p.x + p.y * self.width) * self.stride;
+        &self.data[index..index + self.stride]
     }
 
-    pub fn sample(&self, u: f32, v: f32, method: SamplingMethod, edge: EdgeBehavior) -> Vec<f32> {
-        let (u, v) = edge.edge(u, v);
+    pub fn set_texel(&mut self, p: &Vector2<usize>, value: &[f32]) {
+        let index = (p.x + p.y * self.width) * self.stride;
+        self.data[index..index + self.stride].copy_from_slice(value);
+    }
+
+    pub fn sample(
+        &self,
+        uv: &Vector2<f32>,
+        method: SamplingMethod,
+        edge: EdgeBehavior,
+    ) -> Vec<f32> {
+        let uv = edge.edge(uv);
 
         match method {
             SamplingMethod::Nearest => {
-                let x = (u * (self.width - 1) as f32).round() as u32;
-                let y = (v * (self.height - 1) as f32).round() as u32;
-                self.get_texel(x, y).to_vec()
+                let x = (uv.x * (self.width - 1) as f32).round() as usize;
+                let y = (uv.y * (self.height - 1) as f32).round() as usize;
+                self.get_texel(&Vector2::new(x, y)).to_vec()
             }
             SamplingMethod::Bilinear => {
-                let u = (u * (self.width - 1) as f32) + 0.5;
-                let v = (v * (self.height - 1) as f32) + 0.5;
-                let x = u.floor() as u32;
-                let y = v.floor() as u32;
+                let x = uv.x * (self.width - 1) as f32;
+                let y = uv.y * (self.height - 1) as f32;
 
-                let u_ratio = u - x as f32;
-                let v_ratio = v - y as f32;
-                let u_opposite = 1.0 - u_ratio;
-                let v_opposite = 1.0 - v_ratio;
+                let x_0 = usize::max(x.floor() as usize, self.width as usize - 2);
+                let y_0 = usize::max(y.floor() as usize, self.height as usize - 2);
+                let x_1 = x_0 + 1;
+                let y_1 = y_0 + 1;
 
-                let texel_00 = self.get_texel(x, y);
-                let texel_10 = self.get_texel(x + 1, y);
-                let texel_01 = self.get_texel(x, y + 1);
-                let texel_11 = self.get_texel(x + 1, y + 1);
+                let t_00 = self.get_texel(&Vector2::new(x_0, y_0));
+                let t_01 = self.get_texel(&Vector2::new(x_0, y_1));
+                let t_10 = self.get_texel(&Vector2::new(x_1, y_0));
+                let t_11 = self.get_texel(&Vector2::new(x_1, y_1));
 
-                let mut result = vec![0.0; self.stride as usize];
-                for i in 0..self.stride as usize {
-                    result[i] = texel_00[i] * u_opposite * v_opposite
-                        + texel_10[i] * u_ratio * v_opposite
-                        + texel_01[i] * u_opposite * v_ratio
-                        + texel_11[i] * u_ratio * v_ratio;
-                }
+                let dx = x - x_0 as f32;
+                let dy = y - y_0 as f32;
 
-                result
+                let p_00 = (1.0 - dx) * (1.0 - dy);
+                let p_01 = (1.0 - dx) * dy;
+                let p_10 = dx * (1.0 - dy);
+                let p_11 = dx * dy;
+
+                t_00.iter()
+                    .zip(t_01.iter())
+                    .zip(t_10.iter())
+                    .zip(t_11.iter())
+                    .map(|(((v_00, v_01), v_10), v_11)| {
+                        p_00 * v_00 + p_01 * v_01 + p_10 * v_10 + p_11 * v_11
+                    })
+                    .collect()
             }
         }
     }

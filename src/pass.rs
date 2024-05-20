@@ -4,6 +4,7 @@ use crate::{
     line::{clip_line, travel_line_bresenham},
     pipeline::{DepthCompare, Pipeline},
     shader::{FsPayload, VsOutput},
+    texture::Texture,
     triangle::travel_triangle_barycentric,
 };
 use interpolate::Interpolate;
@@ -12,9 +13,9 @@ use nalgebra::{Vector2, Vector3, Vector4};
 pub struct RenderPass {
     pub viewport: Viewport,
 
-    pub frame_buffer: Vec<u8>,
+    pub frame_texture: Texture,
 
-    pub depth_buffer: Vec<f32>,
+    pub depth_texture: Texture,
 }
 
 impl RenderPass {
@@ -22,14 +23,14 @@ impl RenderPass {
         let pixel_count = (viewport.width * viewport.height) as usize;
         Self {
             viewport,
-            frame_buffer: vec![0; pixel_count * 4],
-            depth_buffer: vec![f32::MAX; pixel_count],
+            frame_texture: Texture::new(viewport.width as usize, viewport.height as usize, 4),
+            depth_texture: Texture::new(viewport.width as usize, viewport.height as usize, 1),
         }
     }
 
     pub fn clear(&mut self) {
-        self.frame_buffer.fill(0);
-        self.depth_buffer.fill(f32::MAX);
+        self.frame_texture.data.fill(0.0);
+        self.depth_texture.data.fill(f32::MAX);
     }
 
     pub fn draw_pixel(&mut self, p: &Vector2<i32>, color: &Color) {
@@ -41,15 +42,13 @@ impl RenderPass {
             return;
         }
 
-        let x = x - offset_x;
+        let x = (x - offset_x) as usize;
         // Flip the y coordinate.
-        let y = height - 1 - (y - offset_y);
-        let index = (x + y * width) as usize;
+        let y = (height - 1 - (y - offset_y)) as usize;
+        // let texel = self.frame_texture.get_texel(&Vector2::new(x, y));
 
-        self.frame_buffer[index * 4] = (color.r * 255.0) as u8;
-        self.frame_buffer[index * 4 + 1] = (color.g * 255.0) as u8;
-        self.frame_buffer[index * 4 + 2] = (color.b * 255.0) as u8;
-        self.frame_buffer[index * 4 + 3] = (color.a * 255.0) as u8;
+        self.frame_texture
+            .set_texel(&Vector2::new(x, y), &[color.r, color.g, color.b, color.a]);
     }
 
     pub fn draw_line(&mut self, p_0: &Vector2<f32>, p_1: &Vector2<f32>, color: &Color) {
@@ -91,13 +90,18 @@ impl RenderPass {
 
                 if pipeline.depth_write_enable {
                     let depth = payload.position.z;
-                    let depth_index =
-                        (position.x + position.y * self.viewport.width as i32) as usize;
-                    let prev = &mut self.depth_buffer[depth_index];
-                    if !DepthCompare::test(pipeline.depth_compare, depth, *prev) {
+                    let prev = self
+                        .depth_texture
+                        .get_texel(&Vector2::new(position.x as usize, position.y as usize))[0];
+
+                    if !DepthCompare::test(pipeline.depth_compare, depth, prev) {
                         continue;
                     }
-                    *prev = depth;
+
+                    self.depth_texture.set_texel(
+                        &Vector2::new(position.x as usize, position.y as usize),
+                        &[depth],
+                    );
                 }
 
                 self.draw_pixel(&position, &pipeline.program.fragment_shader(payload));
