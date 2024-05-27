@@ -1,4 +1,4 @@
-use crate::color::Color;
+use crate::common::color::Color;
 use interpolate::Interpolate;
 use nalgebra::{Vector3, Vector4};
 

@@ -1,4 +1,4 @@
-use crate::basetype::Bbox2;
+use crate::common::basetype::Bbox2;
 use nalgebra::Vector2;
 
 const INSIDE: u8 = /**/ 0b0000;

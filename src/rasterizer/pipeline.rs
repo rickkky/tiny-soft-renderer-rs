@@ -1,4 +1,4 @@
-use crate::shader::ShaderProgram;
+use crate::rasterizer::shader::ShaderProgram;
 use interpolate::Interpolate;
 
 pub enum CullMode {

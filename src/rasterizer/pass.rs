@@ -1,11 +1,15 @@
 use crate::{
-    basetype::{Bbox2, Viewport},
-    color::Color,
-    line::{clip_line, travel_line_bresenham},
-    pipeline::{DepthCompare, Pipeline},
-    shader::{FsPayload, VsOutput},
-    texture::Texture,
-    triangle::travel_triangle_barycentric,
+    common::{
+        basetype::{Bbox2, Viewport},
+        color::Color,
+    },
+    rasterizer::{
+        line::{clip_line, travel_line_bresenham},
+        pipeline::{DepthCompare, Pipeline},
+        shader::{FsPayload, VsOutput},
+        texture::Texture,
+        triangle::travel_triangle_barycentric,
+    },
 };
 use interpolate::Interpolate;
 use nalgebra::{Vector2, Vector3, Vector4};

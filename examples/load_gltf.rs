@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
 use nalgebra::{Vector2, Vector3, Vector4};
 use tinyrenderer::{
-    basetype::Viewport,
-    color::Color,
+    common::{basetype::Viewport, color::Color},
     interpolate::Interpolate,
-    pass::RenderPass,
-    pipeline::{CullMode, DepthCompare, Pipeline},
-    shader::{FsPayload, ShaderProgram, VsOutput},
-    texture::{Data, Texture},
+    rasterizer::{
+        pass::RenderPass,
+        pipeline::{CullMode, DepthCompare, Pipeline},
+        shader::{FsPayload, ShaderProgram, VsOutput},
+        texture::{Data, EdgeBehavior, SamplingMethod, Texture},
+    },
 };
 
 #[derive(Debug, Interpolate)]
@@ -149,11 +150,7 @@ pub fn main() {
                                 .index(),
                         )
                         .unwrap()
-                        .sample(
-                            &texcoord,
-                            tinyrenderer::texture::SamplingMethod::Bilinear,
-                            tinyrenderer::texture::EdgeBehavior::Clamp,
-                        );
+                        .sample(&texcoord, SamplingMethod::Bilinear, EdgeBehavior::Clamp);
                     colors.push(color);
                 }
 

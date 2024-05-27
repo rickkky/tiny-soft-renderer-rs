@@ -1,4 +1,4 @@
-use crate::basetype::Bbox2;
+use crate::common::basetype::Bbox2;
 use nalgebra::{Vector2, Vector3};
 
 pub fn travel_triangle_sweep_line<T: FnMut(Vector2<i32>)>(

@@ -2,8 +2,8 @@ use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
 use nalgebra::{Vector2, Vector3};
 use rand::Rng;
 use tinyrenderer::{
-    basetype::Viewport, color::Color, pass::RenderPass, texture::Data,
-    triangle::travel_triangle_barycentric,
+    common::{basetype::Viewport, color::Color},
+    rasterizer::{pass::RenderPass, texture::Data, triangle::travel_triangle_barycentric},
 };
 
 const WIN_WIDTH: u32 = 800;

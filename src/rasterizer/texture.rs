@@ -1,4 +1,4 @@
-use crate::color::Color;
+use crate::common::color::Color;
 use nalgebra::Vector2;
 
 pub use gltf::image::{Data, Format};
