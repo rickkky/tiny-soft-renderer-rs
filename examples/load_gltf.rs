@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+
 use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
-use nalgebra::{Vector3, Vector4};
+use nalgebra::{Vector2, Vector3, Vector4};
 use tinyrenderer::{
     basetype::Viewport,
     color::Color,
@@ -7,9 +9,10 @@ use tinyrenderer::{
     pass::RenderPass,
     pipeline::{CullMode, DepthCompare, Pipeline},
     shader::{FsPayload, ShaderProgram, VsOutput},
+    texture::{Data, Texture},
 };
 
-#[derive(Interpolate)]
+#[derive(Debug, Interpolate)]
 struct Varying {
     pub color: Color,
 }
@@ -30,7 +33,7 @@ impl ShaderProgram for Renderer {
     fn vertex_shader(&self, index: usize) -> VsOutput<Self::Varying> {
         let normal = self.normals[index];
         let intensity = self.light_dir.dot(&normal).max(0.0);
-        let color = self.colors[index / 3] * intensity;
+        let color = self.colors[index] * intensity;
         VsOutput {
             position: self.vertices[index],
             varying: Self::Varying { color },
@@ -46,12 +49,12 @@ const WIN_WIDTH: u32 = 800;
 const WIN_HEIGHT: u32 = 800;
 
 fn transform_position(position: [f32; 3]) -> Vector4<f32> {
-    let ratio = 10.0;
-    let offset_y = -200.0;
+    let ratio = 12.0;
+    let offset_y = -0.25;
     Vector4::new(
-        position[0] * WIN_WIDTH as f32 * ratio + WIN_WIDTH as f32 / 2.0,
-        position[1] * WIN_HEIGHT as f32 * ratio + WIN_HEIGHT as f32 / 2.0 + offset_y,
-        position[2],
+        position[0] * ratio,
+        position[1] * ratio + offset_y,
+        position[2] + 0.5,
         1.0,
     )
 }
@@ -60,10 +63,21 @@ pub fn main() {
     let app = fltk::app::App::default();
     let mut win = fltk::window::Window::new(100, 100, WIN_WIDTH as i32, WIN_HEIGHT as i32, "Test");
 
-    let viewport = Viewport::new(0, 0, WIN_WIDTH, WIN_HEIGHT);
+    let viewport = Viewport::new(WIN_WIDTH, WIN_HEIGHT);
     let mut pass = RenderPass::new(viewport);
 
-    let (document, buffers, _images) = gltf::import("models/Avocado/glTF/Avocado.gltf").unwrap();
+    let (document, buffers, images) = gltf::import("models/Avocado/glTF/Avocado.gltf").unwrap();
+
+    let mut texture_map = HashMap::new();
+
+    for texture_origin in document.textures() {
+        let source = texture_origin.source();
+        let image = images.get(source.index()).unwrap();
+
+        let texture = Texture::<Color>::from(image);
+
+        texture_map.insert(texture_origin.index(), texture);
+    }
 
     win.draw(move |_| {
         pass.clear();
@@ -76,38 +90,76 @@ pub fn main() {
 
                 let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
-                let positions: Vec<[f32; 3]> = reader.read_positions().unwrap().collect();
-                let indices = reader
-                    .read_indices()
-                    .unwrap()
-                    .into_u32()
-                    .collect::<Vec<u32>>();
-                let raw_normals = reader.read_normals().unwrap().collect::<Vec<[f32; 3]>>();
+                let mut raw_positions: Vec<[f32; 3]> = Vec::new();
+                let mut raw_normals: Vec<[f32; 3]> = Vec::new();
+                let mut raw_colors: Vec<[f32; 3]> = Vec::new();
+                let mut raw_texcoords: Vec<[f32; 2]> = Vec::new();
 
-                let mut vertices = Vec::new();
+                for (semantic, _) in primitive.attributes() {
+                    match semantic {
+                        gltf::Semantic::Positions => {
+                            raw_positions = reader.read_positions().unwrap().collect();
+                        }
+                        gltf::Semantic::Normals => {
+                            raw_normals = reader.read_normals().unwrap().collect();
+                        }
+                        gltf::Semantic::Colors(set) => {
+                            raw_colors = reader.read_colors(set).unwrap().into_rgb_f32().collect();
+                        }
+                        gltf::Semantic::TexCoords(set) => {
+                            raw_texcoords =
+                                reader.read_tex_coords(set).unwrap().into_f32().collect();
+                        }
+                        _ => {}
+                    }
+                }
+
+                let Some(indices) = reader.read_indices() else {
+                    continue;
+                };
+                let indices = indices.into_u32();
+
+                let mut positions = Vec::new();
                 let mut normals = Vec::new();
                 let mut colors = Vec::new();
+                let mut texcoords = Vec::new();
 
-                for i in (0..indices.len()).step_by(3) {
-                    let p_0 = transform_position(positions[indices[i] as usize]);
-                    let p_1 = transform_position(positions[indices[i + 1] as usize]);
-                    let p_2 = transform_position(positions[indices[i + 2] as usize]);
-                    vertices.push(p_0);
-                    vertices.push(p_1);
-                    vertices.push(p_2);
-                    let n_0 = Vector3::from(raw_normals[indices[i] as usize]);
-                    let n_1 = Vector3::from(raw_normals[indices[i + 1] as usize]);
-                    let n_2 = Vector3::from(raw_normals[indices[i + 2] as usize]);
-                    normals.push(n_0);
-                    normals.push(n_1);
-                    normals.push(n_2);
-                    let color = Color::new(0.5, 0.5, 0.5, 1.0);
+                for index in indices {
+                    let vertex = transform_position(raw_positions[index as usize]);
+                    positions.push(vertex);
+                    let normal = Vector3::from(raw_normals[index as usize]);
+                    normals.push(normal);
+                    // let color = Color {
+                    //     r: raw_colors[index as usize][0],
+                    //     g: raw_colors[index as usize][1],
+                    //     b: raw_colors[index as usize][2],
+                    //     a: 1.0,
+                    // };
+                    // colors.push(color);
+                    let texcoord = Vector2::from(raw_texcoords[index as usize]);
+                    texcoords.push(texcoord);
+                    let color = texture_map
+                        .get(
+                            &primitive
+                                .material()
+                                .pbr_metallic_roughness()
+                                .base_color_texture()
+                                .unwrap()
+                                .texture()
+                                .index(),
+                        )
+                        .unwrap()
+                        .sample(
+                            &texcoord,
+                            tinyrenderer::texture::SamplingMethod::Bilinear,
+                            tinyrenderer::texture::EdgeBehavior::Clamp,
+                        );
                     colors.push(color);
                 }
 
-                let times = vertices.len();
+                let vertex_count = positions.len();
                 let renderer = Renderer {
-                    vertices,
+                    vertices: positions,
                     normals,
                     colors,
                     light_dir: Vector3::new(0.0, 0.0, -1.0),
@@ -118,17 +170,12 @@ pub fn main() {
                     depth_write_enable: true,
                     depth_compare: DepthCompare::Less,
                 };
-                pass.draw::<Varying>(&mut pipeline, times);
+                pass.draw::<Varying>(&mut pipeline, vertex_count);
             }
         }
 
         fltk::draw::draw_image(
-            &pass
-                .frame_texture
-                .data
-                .iter()
-                .map(|&x| (x * 255.0) as u8)
-                .collect::<Vec<u8>>(),
+            &Into::<Data>::into(&pass.frame_texture).pixels,
             0,
             0,
             WIN_WIDTH as i32,

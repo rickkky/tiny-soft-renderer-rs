@@ -1,6 +1,6 @@
 use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
 use nalgebra::Vector2;
-use tinyrenderer::{basetype::Viewport, color::Color, pass::RenderPass};
+use tinyrenderer::{basetype::Viewport, color::Color, pass::RenderPass, texture::Data};
 
 const WIN_WIDTH: u32 = 800;
 const WIN_HEIGHT: u32 = 800;
@@ -9,7 +9,7 @@ pub fn main() {
     let app = fltk::app::App::default();
     let mut win = fltk::window::Window::new(100, 100, WIN_WIDTH as i32, WIN_HEIGHT as i32, "Test");
 
-    let viewport = Viewport::new(0, 0, WIN_WIDTH, WIN_HEIGHT);
+    let viewport = Viewport::new(WIN_WIDTH, WIN_HEIGHT);
     let mut pass = RenderPass::new(viewport);
 
     win.draw(move |_| {
@@ -31,12 +31,7 @@ pub fn main() {
         }
 
         fltk::draw::draw_image(
-            &pass
-                .frame_texture
-                .data
-                .iter()
-                .map(|&x| (x * 255.0) as u8)
-                .collect::<Vec<u8>>(),
+            &Into::<Data>::into(&pass.frame_texture).pixels,
             0,
             0,
             WIN_WIDTH as i32,

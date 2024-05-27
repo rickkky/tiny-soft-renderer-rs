@@ -1,6 +1,6 @@
 use interpolate::Interpolate;
 use rand::Rng;
-use std::ops::Mul;
+use std::ops::{Add, Mul};
 
 #[derive(Debug, Clone, Copy, Interpolate)]
 pub struct Color {
@@ -54,6 +54,19 @@ impl Mul<f32> for Color {
             r: self.r * rhs,
             g: self.g * rhs,
             b: self.b * rhs,
+            a: self.a,
+        }
+    }
+}
+
+impl Add for Color {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            r: self.r + rhs.r,
+            g: self.g + rhs.g,
+            b: self.b + rhs.b,
             a: self.a,
         }
     }
