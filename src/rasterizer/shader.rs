@@ -19,7 +19,7 @@ pub struct FsPayload<V: Interpolate> {
 }
 
 #[allow(unused_variables)]
-pub trait ShaderProgram {
+pub trait Shader {
     type Varying: Interpolate;
 
     fn vertex_shader(&self, index: usize) -> VsOutput<Self::Varying> {

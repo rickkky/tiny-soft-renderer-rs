@@ -1,4 +1,4 @@
-use crate::rasterizer::shader::ShaderProgram;
+use crate::rasterizer::shader::Shader;
 use interpolate::Interpolate;
 
 pub enum CullMode {
@@ -35,7 +35,7 @@ impl DepthCompare {
 }
 
 pub struct Pipeline<'a, V: Interpolate = ()> {
-    pub program: &'a dyn ShaderProgram<Varying = V>,
+    pub program: &'a dyn Shader<Varying = V>,
 
     pub cull_mode: CullMode,
 

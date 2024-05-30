@@ -13,7 +13,6 @@ members = ["packages/*"]
 nalgebra = "0.32.4"
 num-traits = "0.2.18"
 
-
 [dependencies]
 gltf = "1.4.0"
 interpolate = { path = "packages/interpolate" }

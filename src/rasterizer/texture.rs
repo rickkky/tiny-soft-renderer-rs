@@ -179,7 +179,7 @@ impl Into<Data> for &Texture<Color> {
             }
         }
 
-        gltf::image::Data {
+        Data {
             width: self.width,
             height: self.height,
             format: Format::R8G8B8A8,
