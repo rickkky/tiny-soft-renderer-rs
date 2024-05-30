@@ -81,13 +81,13 @@ impl RenderPass {
             .collect();
 
         for i in (0..vertex_count).step_by(3) {
-            if is_triangle_deprecated(
-                &vs_outputs[i].position,
-                &vs_outputs[i + 1].position,
-                &vs_outputs[i + 2].position,
-            ) {
-                continue;
-            }
+            // if is_triangle_deprecated(
+            //     &vs_outputs[i].position,
+            //     &vs_outputs[i + 1].position,
+            //     &vs_outputs[i + 2].position,
+            // ) {
+            //     continue;
+            // }
 
             for v in &mut vs_outputs[i..=i + 2] {
                 v.position = clipspace_to_viewport(&v.position, &self.viewport);
@@ -100,10 +100,14 @@ impl RenderPass {
             let collection = collect_triangle(v_0, v_1, v_2);
 
             for payload in collection {
-                let position = payload.position.xy().map(|v| v as i32);
+                let position = payload.position;
 
-                if (position.x < 0 || position.x >= self.viewport.width as i32)
-                    || (position.y < 0 || position.y >= self.viewport.height as i32)
+                if position.x < 0.0
+                    || position.x >= self.viewport.width as f32
+                    || position.y < 0.0
+                    || position.y >= self.viewport.height as f32
+                    || position.z < -1.0
+                    || position.z > 1.0
                 {
                     continue;
                 }
@@ -126,23 +130,11 @@ impl RenderPass {
                     );
                 }
 
+                let position = position.xy().map(|v| v as i32);
                 self.draw_pixel(&position, &pipeline.program.fragment_shader(payload));
             }
         }
     }
-}
-
-fn is_triangle_deprecated(p_0: &Vector4<f32>, p_1: &Vector4<f32>, p_2: &Vector4<f32>) -> bool {
-    if (p_0.x < -1.0 && p_1.x < -1.0 && p_2.x < -1.0)
-        || (p_0.x > 1.0 && p_1.x > 1.0 && p_2.x > 1.0)
-        || (p_0.y < -1.0 && p_1.y < -1.0 && p_2.y < -1.0)
-        || (p_0.y > 1.0 && p_1.y > 1.0 && p_2.y > 1.0)
-        || (p_0.z < 0.0 && p_1.z < 0.0 && p_2.z < 0.0)
-        || (p_0.z > 1.0 && p_1.z > 1.0 && p_2.z > 1.0)
-    {
-        return true;
-    }
-    false
 }
 
 fn clipspace_to_viewport(p: &Vector4<f32>, viewport: &Viewport) -> Vector4<f32> {

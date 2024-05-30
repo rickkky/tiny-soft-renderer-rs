@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use nalgebra::{Vector2, Vector3, Vector4};
+use std::collections::HashMap;
 use tinyrenderer::{common::color::Color, rasterizer::texture::Texture};
 
 #[derive(Debug)]
