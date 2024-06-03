@@ -32,7 +32,7 @@ impl RenderPass {
     }
 
     pub fn clear(&mut self) {
-        self.frame_texture.data.fill(Color::BLACK);
+        self.frame_texture.data.fill(Color::WHITE);
         self.depth_texture.data.fill(None);
     }
 
@@ -71,23 +71,29 @@ impl RenderPass {
         });
     }
 
-    pub fn draw<'a, V: Interpolate>(
+    pub fn draw<'a, V: std::fmt::Debug + Interpolate>(
         &mut self,
         pipeline: &mut Pipeline<'a, V>,
         vertex_count: usize,
     ) {
         let mut vs_outputs: Vec<VsOutput<V>> = (0..vertex_count)
-            .map(|index| pipeline.program.vertex_shader(index))
+            .map(|index| {
+                let mut o = pipeline.program.vertex_shader(index);
+                println!("position 1: {:?}", o.position);
+                o.position = o.position / o.position.w;
+                println!("position 2: {:?}", o.position);
+                o
+            })
             .collect();
 
         for i in (0..vertex_count).step_by(3) {
-            // if is_triangle_deprecated(
-            //     &vs_outputs[i].position,
-            //     &vs_outputs[i + 1].position,
-            //     &vs_outputs[i + 2].position,
-            // ) {
-            //     continue;
-            // }
+            if is_triangle_outside_clipspace_sketchy(
+                &vs_outputs[i].position,
+                &vs_outputs[i + 1].position,
+                &vs_outputs[i + 2].position,
+            ) {
+                continue;
+            }
 
             for v in &mut vs_outputs[i..=i + 2] {
                 v.position = clipspace_to_viewport(&v.position, &self.viewport);
@@ -97,20 +103,10 @@ impl RenderPass {
             let v_1 = &vs_outputs[i + 1];
             let v_2 = &vs_outputs[i + 2];
 
-            let collection = collect_triangle(v_0, v_1, v_2);
+            let collection = collect_triangle(v_0, v_1, v_2, &self.viewport);
 
             for payload in collection {
                 let position = payload.position;
-
-                if position.x < 0.0
-                    || position.x >= self.viewport.width as f32
-                    || position.y < 0.0
-                    || position.y >= self.viewport.height as f32
-                    || position.z < -1.0
-                    || position.z > 1.0
-                {
-                    continue;
-                }
 
                 if pipeline.depth_write_enable {
                     let depth = payload.position.z;
@@ -137,6 +133,19 @@ impl RenderPass {
     }
 }
 
+fn is_triangle_outside_clipspace_sketchy(
+    p_0: &Vector4<f32>,
+    p_1: &Vector4<f32>,
+    p_2: &Vector4<f32>,
+) -> bool {
+    (p_0.x < -1.0 && p_1.x < -1.0 && p_2.x < -1.0)
+        || (p_0.x >= 1.0 && p_1.x >= 1.0 && p_2.x >= 1.0)
+        || (p_0.y < -1.0 && p_1.y < -1.0 && p_2.y < -1.0)
+        || (p_0.y >= 1.0 && p_1.y >= 1.0 && p_2.y >= 1.0)
+        || (p_0.z < -1.0 && p_1.z < -1.0 && p_2.z < -1.0)
+        || (p_0.z >= 1.0 && p_1.z >= 1.0 && p_2.z >= 1.0)
+}
+
 fn clipspace_to_viewport(p: &Vector4<f32>, viewport: &Viewport) -> Vector4<f32> {
     let x = (p.x + 1.0) / 2.0 * viewport.width as f32;
     let y = (p.y + 1.0) / 2.0 * viewport.height as f32;
@@ -149,8 +158,10 @@ fn collect_triangle<V: Interpolate>(
     v_0: &VsOutput<V>,
     v_1: &VsOutput<V>,
     v_2: &VsOutput<V>,
+    viewport: &Viewport,
 ) -> Vec<FsPayload<V>> {
     let mut vertices = Vec::new();
+
     let action = |p: Vector2<i32>, bary_coord: Vector3<f32>| {
         let z = f32::barycentric_interpolate(
             &v_0.position.z,
@@ -159,19 +170,36 @@ fn collect_triangle<V: Interpolate>(
             &bary_coord,
         );
         let position = Vector4::new(p.x as f32, p.y as f32, z, 1.0);
-        let extra =
+
+        if !is_position_inside_viewport(&position, viewport) {
+            return;
+        }
+
+        let varying =
             V::barycentric_interpolate(&v_0.varying, &v_1.varying, &v_2.varying, &bary_coord);
+
         vertices.push(FsPayload {
             position,
-            varying: extra,
+            varying,
             bary_coord,
         });
     };
+
     travel_triangle_barycentric(
         &v_0.position.xy(),
         &v_1.position.xy(),
         &v_2.position.xy(),
         action,
     );
+
     vertices
+}
+
+fn is_position_inside_viewport(p: &Vector4<f32>, viewport: &Viewport) -> bool {
+    p.x >= 0.0
+        && p.x < viewport.width as f32
+        && p.y >= 0.0
+        && p.y < viewport.height as f32
+        && p.z >= -1.0
+        && p.z < 1.0
 }
