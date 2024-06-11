@@ -2,7 +2,10 @@ use fltk::prelude::{GroupExt, WidgetBase, WidgetExt};
 use nalgebra::{Vector2, Vector3};
 use rand::Rng;
 use tinyrenderer::{
-    common::{basetype::Viewport, color::Color},
+    common::{
+        basetype::{Bbox2, Viewport},
+        color::Color,
+    },
     rasterizer::{pass::RenderPass, texture::Data, triangle::travel_triangle_barycentric},
 };
 
@@ -54,7 +57,13 @@ pub fn main() {
             let draw = |p: Vector2<i32>, _: Vector3<f32>| {
                 pass.draw_pixel(&p, &color);
             };
-            travel_triangle_barycentric(&p_0, &p_1, &p_2, draw);
+            travel_triangle_barycentric(
+                &p_0,
+                &p_1,
+                &p_2,
+                &Bbox2::<f32>::from(viewport.clone()),
+                draw,
+            );
         }
 
         fltk::draw::draw_image(

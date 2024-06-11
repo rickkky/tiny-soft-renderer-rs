@@ -63,18 +63,21 @@ pub fn travel_triangle_barycentric<T: FnMut(Vector2<i32>, Vector3<f32>)>(
     p_0: &Vector2<f32>,
     p_1: &Vector2<f32>,
     p_2: &Vector2<f32>,
+    viewport: &Bbox2<f32>,
     mut action: T,
 ) {
-    let bbox = Bbox2::from_points(&vec![p_0, p_1, p_2]);
-    for x in bbox.l.floor() as i32..=bbox.r.ceil() as i32 {
-        for y in bbox.b.floor() as i32..=bbox.t.ceil() as i32 {
-            let p = Vector2::new(x as f32, y as f32);
-            let bary_coord = compute_barycentric_coordinate(p_0, p_1, p_2, &p);
-            if !is_barycentric_coordinate_inside(&bary_coord) {
-                continue;
-            }
+    if let Some(bbox) = Bbox2::from_vector2(&vec![p_0, p_1, p_2]).intersect(viewport) {
+        for x in bbox.l.floor() as i32..=bbox.r.ceil() as i32 {
+            for y in bbox.b.floor() as i32..=bbox.t.ceil() as i32 {
+                let p = Vector2::new(x as f32, y as f32);
+                let bary_coord = compute_barycentric_coordinate(p_0, p_1, p_2, &p);
 
-            action(Vector2::new(x, y), bary_coord);
+                if !is_barycentric_coordinate_inside(&bary_coord) {
+                    continue;
+                }
+
+                action(Vector2::new(x, y), bary_coord);
+            }
         }
     }
 }

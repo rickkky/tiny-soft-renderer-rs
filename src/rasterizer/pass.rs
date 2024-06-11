@@ -1,6 +1,6 @@
 use crate::{
     common::{
-        basetype::{Bbox2, Viewport},
+        basetype::{Bbox2, Bbox3, Viewport},
         color::Color,
     },
     rasterizer::{
@@ -53,22 +53,12 @@ impl RenderPass {
     }
 
     pub fn draw_line(&mut self, p_0: &Vector2<f32>, p_1: &Vector2<f32>, color: &Color) {
-        let bbox = Bbox2::new(
-            0.0,
-            self.viewport.width as f32,
-            0.0,
-            self.viewport.height as f32,
-        );
-        let clip_result = clip_line(p_0, p_1, &bbox);
-
-        if clip_result.is_none() {
-            return;
+        if let Some(clip_result) = clip_line(p_0, p_1, &Bbox2::from(self.viewport.clone())) {
+            let (p_0, p_1) = clip_result;
+            travel_line_bresenham(&p_0, &p_1, |p: Vector2<i32>| {
+                self.draw_pixel(&p, color);
+            });
         }
-
-        let (p_0, p_1) = clip_result.unwrap();
-        travel_line_bresenham(&p_0, &p_1, |p: Vector2<i32>| {
-            self.draw_pixel(&p, color);
-        });
     }
 
     pub fn draw<'a, V: std::fmt::Debug + Interpolate>(
@@ -79,9 +69,7 @@ impl RenderPass {
         let mut vs_outputs: Vec<VsOutput<V>> = (0..vertex_count)
             .map(|index| {
                 let mut o = pipeline.program.vertex_shader(index);
-                println!("position 1: {:?}", o.position);
                 o.position = o.position / o.position.w;
-                println!("position 2: {:?}", o.position);
                 o
             })
             .collect();
@@ -103,9 +91,9 @@ impl RenderPass {
             let v_1 = &vs_outputs[i + 1];
             let v_2 = &vs_outputs[i + 2];
 
-            let collection = collect_triangle(v_0, v_1, v_2, &self.viewport);
+            let fs_payloads = collect_triangle(v_0, v_1, v_2, &self.viewport);
 
-            for payload in collection {
+            for payload in fs_payloads {
                 let position = payload.position;
 
                 if pipeline.depth_write_enable {
@@ -138,12 +126,13 @@ fn is_triangle_outside_clipspace_sketchy(
     p_1: &Vector4<f32>,
     p_2: &Vector4<f32>,
 ) -> bool {
-    (p_0.x < -1.0 && p_1.x < -1.0 && p_2.x < -1.0)
-        || (p_0.x >= 1.0 && p_1.x >= 1.0 && p_2.x >= 1.0)
-        || (p_0.y < -1.0 && p_1.y < -1.0 && p_2.y < -1.0)
-        || (p_0.y >= 1.0 && p_1.y >= 1.0 && p_2.y >= 1.0)
-        || (p_0.z < -1.0 && p_1.z < -1.0 && p_2.z < -1.0)
-        || (p_0.z >= 1.0 && p_1.z >= 1.0 && p_2.z >= 1.0)
+    let bbox = Bbox3::from_vector3(&vec![
+        &Vector3::new(p_0.x, p_0.y, p_0.z),
+        &Vector3::new(p_1.x, p_1.y, p_1.z),
+        &Vector3::new(p_2.x, p_2.y, p_2.z),
+    ]);
+    let clipspace = Bbox3::new(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);
+    bbox.intersect(&clipspace).is_none()
 }
 
 fn clipspace_to_viewport(p: &Vector4<f32>, viewport: &Viewport) -> Vector4<f32> {
@@ -160,7 +149,7 @@ fn collect_triangle<V: Interpolate>(
     v_2: &VsOutput<V>,
     viewport: &Viewport,
 ) -> Vec<FsPayload<V>> {
-    let mut vertices = Vec::new();
+    let mut fs_payloads = Vec::new();
 
     let action = |p: Vector2<i32>, bary_coord: Vector3<f32>| {
         let z = f32::barycentric_interpolate(
@@ -178,7 +167,7 @@ fn collect_triangle<V: Interpolate>(
         let varying =
             V::barycentric_interpolate(&v_0.varying, &v_1.varying, &v_2.varying, &bary_coord);
 
-        vertices.push(FsPayload {
+        fs_payloads.push(FsPayload {
             position,
             varying,
             bary_coord,
@@ -189,10 +178,11 @@ fn collect_triangle<V: Interpolate>(
         &v_0.position.xy(),
         &v_1.position.xy(),
         &v_2.position.xy(),
+        &Bbox2::<f32>::from(viewport.clone()),
         action,
     );
 
-    vertices
+    fs_payloads
 }
 
 fn is_position_inside_viewport(p: &Vector4<f32>, viewport: &Viewport) -> bool {
